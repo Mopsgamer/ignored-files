@@ -2,6 +2,8 @@
 
 Show files and directories ignored/included by Git, NPM, Yarn, JSR, VSCE or other tools.
 
+See https://github.com/Mopsgamer/view-ignored for details.
+
 ![Target selection preivew](https://raw.githubusercontent.com/Mopsgamer/ignored-files/main/images/select-target.png)
 
 ![Inversion selection preview](https://raw.githubusercontent.com/Mopsgamer/ignored-files/main/images/select-inversion.png)

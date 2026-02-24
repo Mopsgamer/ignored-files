@@ -1,12 +1,11 @@
 import path from "node:path"
-
 import * as vign from "view-ignored"
 import { MatcherContext } from "view-ignored/patterns"
 import * as vscode from "vscode"
 
 import { explain } from "./explain.js"
 import { parseUri } from "./parseUri.js"
-import { nameFromTarget, targetFromName, TargetName } from "./targetName.js"
+import { TargetName, nameFromTarget, targetFromName } from "./targetName.js"
 
 export type DecorationKind = "ignored" | "included" | "unknown"
 

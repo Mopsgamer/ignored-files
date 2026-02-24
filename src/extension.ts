@@ -1,6 +1,5 @@
-import * as fs from "node:fs"
-
 import ms from "ms"
+import * as fs from "node:fs"
 import { MatcherContext, SignedPatternMatch } from "view-ignored/patterns"
 import * as vscode from "vscode"
 
@@ -8,7 +7,7 @@ import { NpmDecorationProvider } from "./decorationsProvider.js"
 import { explain } from "./explain.js"
 import { output } from "./output.js"
 import { parseUri } from "./parseUri.js"
-import { targetFromName, TargetName, targetNames } from "./targetName.js"
+import { TargetName, targetFromName, targetNames } from "./targetName.js"
 
 function pickValue(
 	title: string,
@@ -83,6 +82,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 			const targetName = await pickValue(title, "Select the target", [...targetNames])
 			if (!targetName) return
+			const target = targetFromName(targetName as TargetName)
 			output.info("Explaining '" + entry + "'. targetName is " + targetName)
 
 			const tempCtx: MatcherContext = {
@@ -96,33 +96,40 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			const aborter = new AbortController()
-			const matchProcess = targetFromName(targetName as TargetName).ignores({
-				cwd: cwd.replace(/\w:/, ""),
-				ctx: tempCtx,
-				entry,
-				fs,
-				signal: aborter.signal,
-			})
+			const unixCwd = cwd.replace(/\w:/, "")
 
 			output.info("Scanning to explain...")
 
-			const t = setTimeout(aborter.abort, 5000)
 			const start = Date.now()
 			let match: SignedPatternMatch
 			try {
-				match = await matchProcess
+				using _t = setTimeout(aborter.abort.bind(aborter), 5000)
+				await target.init?.({ ctx: tempCtx, cwd: unixCwd, fs, signal: aborter.signal })
+				match = await target.ignores({
+					cwd: unixCwd,
+					ctx: tempCtx,
+					entry,
+					fs,
+					signal: aborter.signal,
+				})
 			} catch (err) {
 				output.error(new Error("Unexpected scanning error", { cause: err }))
 				return
-			} finally {
-				const end = Date.now()
-				output.info("'" + entry + "'", "has been explained in", ms(end - start, { long: true }))
-				clearTimeout(t)
 			}
-			output.info("Creating message...")
-			void vscode.window.showInformationMessage(entry, {
-				detail: explain(false, match, targetName, targetFromName(targetName as TargetName)),
-			})
+			const end = Date.now()
+			output.info(
+				"'" + entry + "'",
+				"has been explained/errored in",
+				ms(end - start, { long: true }),
+			)
+			const explanation = explain(
+				false,
+				match,
+				targetName,
+				targetFromName(targetName as TargetName),
+			)
+			output.info("Got the explanation message...")
+			void vscode.window.showInformationMessage(entry, { detail: explanation })
 		}),
 	)
 }

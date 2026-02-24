@@ -121,7 +121,6 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 			output.info("Creating message...")
 			void vscode.window.showInformationMessage(entry, {
-				modal: true,
 				detail: explain(false, match, targetName, targetFromName(targetName as TargetName)),
 			})
 		}),

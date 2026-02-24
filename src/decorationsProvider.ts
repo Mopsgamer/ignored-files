@@ -79,7 +79,13 @@ export class NpmDecorationProvider implements vscode.FileDecorationProvider, vsc
 					} catch (error) {
 						if ((error as DOMException).name === "TimeoutError") {
 							vscode.window.showWarningMessage(`Scanning for ${targetName} files timed out (20s).`)
+							return
 						}
+						if (error instanceof Error) {
+							vscode.window.showErrorMessage(error.message)
+							return
+						}
+						vscode.window.showErrorMessage(String(error))
 					} finally {
 						resolve()
 					}

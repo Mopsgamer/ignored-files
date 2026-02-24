@@ -3,6 +3,7 @@ import * as fs from "node:fs"
 import { MatcherContext, SignedPatternMatch } from "view-ignored/patterns"
 import * as vscode from "vscode"
 
+import { ArkError, collectCauses } from "./collectCauses.js"
 import { NpmDecorationProvider } from "./decorationsProvider.js"
 import { explain } from "./explain.js"
 import { output } from "./output.js"
@@ -113,15 +114,23 @@ export function activate(context: vscode.ExtensionContext) {
 					signal: aborter.signal,
 				})
 			} catch (err) {
-				output.error(new Error("Unexpected scanning error", { cause: err }))
-				return
+				if (err && typeof err === "object" && "summary" in err) {
+					const detail = collectCauses(err as ArkError).join(": ")
+					void vscode.window.showErrorMessage("Failed to explain " + entry, { modal: true, detail })
+					output.error("'" + entry + "': " + detail)
+					return
+				}
+				if (err instanceof Error) {
+					const detail = collectCauses(err).join(": ")
+					void vscode.window.showErrorMessage("Failed to explain " + entry, { modal: true, detail })
+					output.error("'" + entry + "': " + detail)
+					return
+				}
+				output.error(String(err))
+				throw err
 			}
 			const end = Date.now()
-			output.info(
-				"'" + entry + "'",
-				"has been explained/errored in",
-				ms(end - start, { long: true }),
-			)
+			output.info("'" + entry + "' has been explained in", ms(end - start, { long: true }))
 			const explanation = explain(
 				false,
 				match,

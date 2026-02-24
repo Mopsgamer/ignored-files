@@ -32,7 +32,7 @@
 	},
 	"devDependencies": {
 		"@types/ms": "^2.1.0",
-		"@types/node": "^18.19.130",
+		"@types/node": "^20.19.33",
 		"@types/vscode": "^1.107.0",
 		"@typescript/native-preview": "^7.0.0-dev.20260224.1",
 		"@vscode/test-electron": "^2.5.2",

@@ -1,3 +1,5 @@
+import { FsAdapter } from "view-ignored"
+import { MatcherContext } from "view-ignored/patterns"
 import * as targets from "view-ignored/targets"
 
 export type TargetName = "NPM" | "Yarn" | "Yarn classic" | "VSCE" | "Git" | "Bun" | "Deno" | "JSR"
@@ -12,6 +14,8 @@ export const targetNames: TargetName[] = [
 	"Deno",
 	"JSR",
 ]
+
+export const targetProviders = targetNames.map(targetFromName)
 
 export function targetFromName(name: TargetName): targets.Target {
 	switch (name) {
@@ -34,7 +38,7 @@ export function targetFromName(name: TargetName): targets.Target {
 	}
 }
 
-export function nameFromTarget(target: targets.Target): TargetName | undefined {
+export function nameFromTarget(target: targets.Target): TargetName {
 	switch (target) {
 		case targets.NPM:
 			return "NPM"
@@ -53,6 +57,37 @@ export function nameFromTarget(target: targets.Target): TargetName | undefined {
 		case targets.JSR:
 			return "JSR"
 		default:
-			return undefined
+			throw new TypeError("Unknown target")
 	}
+}
+
+export async function relatedTargets(
+	cwd: string,
+	fs: FsAdapter,
+	signal: AbortSignal,
+): Promise<targets.Target[]> {
+	const safeTargets: targets.Target[] = []
+	for (const target of targetProviders) {
+		if (!target.init) {
+			safeTargets.push(target)
+			continue
+		}
+
+		try {
+			const tempCtx: MatcherContext = {
+				depthPaths: new Map(),
+				external: new Map(),
+				failed: [],
+				paths: new Map(),
+				totalDirs: 0,
+				totalFiles: 0,
+				totalMatchedFiles: 0,
+			}
+			await target.init?.({ ctx: tempCtx, cwd, fs, signal })
+		} catch {
+			continue
+		}
+		safeTargets.push(target)
+	}
+	return safeTargets
 }

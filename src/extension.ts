@@ -3,12 +3,18 @@ import * as fs from "node:fs"
 import { MatcherContext, SignedPatternMatch } from "view-ignored/patterns"
 import * as vscode from "vscode"
 
-import { ArkError, collectCauses } from "./collectCauses.js"
+import { collectCauses } from "./collectCauses.js"
 import { NpmDecorationProvider } from "./decorationsProvider.js"
 import { explain } from "./explain.js"
 import { output } from "./output.js"
 import { parseUri } from "./parseUri.js"
-import { TargetName, targetFromName, targetNames } from "./targetName.js"
+import {
+	TargetName,
+	nameFromTarget,
+	relatedTargets,
+	targetFromName,
+	targetNames,
+} from "./targetName.js"
 
 function pickValue(
 	title: string,
@@ -80,8 +86,12 @@ export function activate(context: vscode.ExtensionContext) {
 
 			const { cwd, entry } = parsed
 			const title = "Explain ignoring for " + entry
+			const aborter = new AbortController()
+			const unixCwd = cwd.replace(/\w:/, "")
 
-			const targetName = await pickValue(title, "Select the target", [...targetNames])
+			const related = await relatedTargets(unixCwd, fs, aborter.signal)
+
+			const targetName = await pickValue(title, "Select the target", related.map(nameFromTarget))
 			if (!targetName) return
 			const target = targetFromName(targetName as TargetName)
 			output.info("Explaining '" + entry + "'. targetName is " + targetName)
@@ -95,9 +105,6 @@ export function activate(context: vscode.ExtensionContext) {
 				totalFiles: 0,
 				totalMatchedFiles: 0,
 			}
-
-			const aborter = new AbortController()
-			const unixCwd = cwd.replace(/\w:/, "")
 
 			output.info("Scanning to explain...")
 
@@ -114,12 +121,6 @@ export function activate(context: vscode.ExtensionContext) {
 					signal: aborter.signal,
 				})
 			} catch (err) {
-				if (err && typeof err === "object" && "summary" in err) {
-					const detail = collectCauses(err as ArkError).join(": ")
-					void vscode.window.showErrorMessage("Failed to explain " + entry, { modal: true, detail })
-					output.error("'" + entry + "': " + detail)
-					return
-				}
 				if (err instanceof Error) {
 					const detail = collectCauses(err).join(": ")
 					void vscode.window.showErrorMessage("Failed to explain " + entry, { modal: true, detail })
@@ -137,8 +138,8 @@ export function activate(context: vscode.ExtensionContext) {
 				targetName,
 				targetFromName(targetName as TargetName),
 			)
-			output.info("Got the explanation message...")
-			void vscode.window.showInformationMessage(entry, { detail: explanation })
+			output.info("Got the explanation message: " + explanation)
+			void vscode.window.showInformationMessage(entry, { modal: true, detail: explanation })
 		}),
 	)
 }

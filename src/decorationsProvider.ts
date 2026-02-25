@@ -3,7 +3,9 @@ import * as vign from "view-ignored"
 import { MatcherContext } from "view-ignored/patterns"
 import * as vscode from "vscode"
 
+import { collectCauses } from "./collectCauses.js"
 import { explain } from "./explain.js"
+import { output } from "./output.js"
 import { parseUri } from "./parseUri.js"
 import { TargetName, nameFromTarget, targetFromName } from "./targetName.js"
 
@@ -75,16 +77,22 @@ export class NpmDecorationProvider implements vscode.FileDecorationProvider, vsc
 							...options,
 							signal: AbortSignal.any(signals),
 						})
-					} catch (error) {
-						if ((error as DOMException).name === "TimeoutError") {
+					} catch (err) {
+						if ((err as DOMException).name === "TimeoutError") {
 							vscode.window.showWarningMessage(`Scanning for ${targetName} files timed out (20s).`)
 							return
 						}
-						if (error instanceof Error) {
-							vscode.window.showErrorMessage(error.message)
+
+						if (err instanceof Error) {
+							const detail = collectCauses(err).join(": ")
+							void vscode.window.showErrorMessage("Failed to scan " + targetName, {
+								modal: true,
+								detail,
+							})
+							output.error(targetName + ": " + detail)
 							return
 						}
-						vscode.window.showErrorMessage(String(error))
+						output.error(String(err))
 					} finally {
 						resolve()
 					}

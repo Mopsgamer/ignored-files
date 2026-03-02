@@ -1,11 +1,11 @@
-import { SignedPatternMatch } from "view-ignored/patterns"
+import { RuleMatch } from "view-ignored/patterns"
 import { Target } from "view-ignored/targets"
 
 import { output } from "./output.js"
 
 export function explain(
 	inverted: boolean,
-	match: SignedPatternMatch,
+	match: RuleMatch,
 	targetName: string,
 	target: Target,
 ): string {

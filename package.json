@@ -28,7 +28,7 @@
 	},
 	"dependencies": {
 		"ms": "^2.1.3",
-		"view-ignored": "^0.9.0"
+		"view-ignored": "^0.10.0"
 	},
 	"devDependencies": {
 		"@types/ms": "^2.1.0",

@@ -83,7 +83,7 @@ export async function relatedTargets(
 				totalFiles: 0,
 				totalMatchedFiles: 0,
 			}
-			await target.init?.({ ctx: tempCtx, cwd, fs, signal })
+			await target.init?.({ ctx: tempCtx, cwd, fs, signal, target })
 		} catch {
 			continue
 		}

@@ -1,6 +1,6 @@
 import ms from "ms"
 import * as fs from "node:fs"
-import { MatcherContext, SignedPatternMatch } from "view-ignored/patterns"
+import { MatcherContext, RuleMatch } from "view-ignored/patterns"
 import * as vscode from "vscode"
 
 import { collectCauses } from "./collectCauses.js"
@@ -109,16 +109,17 @@ export function activate(context: vscode.ExtensionContext) {
 			output.info("Scanning to explain...")
 
 			const start = Date.now()
-			let match: SignedPatternMatch
+			let match: RuleMatch
 			try {
 				using _t = setTimeout(aborter.abort.bind(aborter), 5000)
-				await target.init?.({ ctx: tempCtx, cwd: unixCwd, fs, signal: aborter.signal })
+				await target.init?.({ ctx: tempCtx, cwd: unixCwd, fs, signal: aborter.signal, target })
 				match = await target.ignores({
 					cwd: unixCwd,
 					ctx: tempCtx,
 					entry,
 					fs,
 					signal: aborter.signal,
+					target
 				})
 			} catch (err) {
 				if (err instanceof Error) {

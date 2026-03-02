@@ -119,7 +119,7 @@ export function activate(context: vscode.ExtensionContext) {
 					entry,
 					fs,
 					signal: aborter.signal,
-					target
+					target,
 				})
 			} catch (err) {
 				if (err instanceof Error) {

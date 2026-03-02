@@ -34,12 +34,14 @@ export class NpmDecorationProvider implements vscode.FileDecorationProvider, vsc
 			const cwd = directory.uri.fsPath
 			const ctx = await vign.scan({ fastInternal: true, ...options, cwd })
 			this.ctx = ctx
-			for (const [file, match] of ctx.paths) {
+			for (const [file, _match] of ctx.paths) {
 				if (file.endsWith("/")) {
 					continue
 				}
 				const uri = vscode.Uri.file(path.join(cwd, file.replace("/", path.sep)))
-				this.decorations.set(uri.fsPath, match.ignored ? "ignored" : "included")
+				const ignored = options.invert ?? false
+				const decoration = ignored ? "ignored" : "included"
+				this.decorations.set(uri.fsPath, decoration)
 				this._onDidChange.fire(uri)
 			}
 		}

@@ -7,7 +7,9 @@
 		"Other",
 		"SCM Providers"
 	],
+	"license": "MIT",
 	"author": "Mopsgamer",
+	"publisher": "Mopsgamer",
 	"repository": {
 		"type": "git",
 		"url": "git://github.com/Mopsgamer/ignored-files.git"

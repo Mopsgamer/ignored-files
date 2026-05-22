@@ -1,5 +1,4 @@
 import { FsAdapter } from "view-ignored"
-import { MatcherContext } from "view-ignored/patterns"
 import * as targets from "view-ignored/targets"
 
 export type TargetName = "NPM" | "Yarn" | "Yarn classic" | "VSCE" | "Git" | "Bun" | "Deno" | "JSR"
@@ -74,16 +73,15 @@ export async function relatedTargets(
 		}
 
 		try {
-			const tempCtx: MatcherContext = {
-				depthPaths: new Map(),
-				external: new Map(),
-				failed: [],
-				paths: new Map(),
-				totalDirs: 0,
-				totalFiles: 0,
-				totalMatchedFiles: 0,
-			}
-			await target.init?.({ ctx: tempCtx, cwd, fs, signal, target })
+			await new Promise<void>((r, j) =>
+				target.init?.({ cwd, fs, signal, target }, (err) => {
+					if (err) {
+						j(err)
+						return
+					}
+					r()
+				}),
+			)
 		} catch {
 			continue
 		}

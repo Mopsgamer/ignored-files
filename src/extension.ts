@@ -1,6 +1,7 @@
 import ms from "ms"
 import * as fs from "node:fs"
-import { MatcherContext, RuleMatch } from "view-ignored/patterns"
+import { dirname } from "node:path/posix"
+import { resolveSources, RuleMatch } from "view-ignored/patterns"
 import * as vscode from "vscode"
 
 import { collectCauses } from "./collectCauses.js"
@@ -96,30 +97,60 @@ export function activate(context: vscode.ExtensionContext) {
 			const target = targetFromName(targetName as TargetName)
 			output.info("Explaining '" + entry + "'. targetName is " + targetName)
 
-			const tempCtx: MatcherContext = {
-				depthPaths: new Map(),
-				external: new Map(),
-				failed: [],
-				paths: new Map(),
-				totalDirs: 0,
-				totalFiles: 0,
-				totalMatchedFiles: 0,
-			}
-
 			output.info("Scanning to explain...")
 
 			const start = Date.now()
 			let match: RuleMatch
 			try {
 				using _t = setTimeout(aborter.abort.bind(aborter), 5000)
-				await target.init?.({ ctx: tempCtx, cwd: unixCwd, fs, signal: aborter.signal, target })
-				match = await target.ignores({
-					cwd: unixCwd,
-					ctx: tempCtx,
-					entry,
-					fs,
-					signal: aborter.signal,
-					target,
+				await new Promise<void>((r, j) =>
+					target.init?.({ cwd: unixCwd, fs, signal: aborter.signal, target }, (err) => {
+						if (err) {
+							j(err)
+							return
+						}
+						r()
+					}),
+				)
+				const dir = dirname(entry)
+				const entries = await fs.promises.readdir(dir, { withFileTypes: true })
+				match = await new Promise<RuleMatch>((r, j) => {
+					resolveSources(
+						{
+							cwd: unixCwd,
+							dir: dirname(entry),
+							external: new Map(),
+							fs,
+							signal: aborter.signal,
+							target,
+							entries,
+						},
+						(err, resource) => {
+							if (err) {
+								j(err)
+								return
+							}
+							target.ignores(
+								{
+									cwd: unixCwd,
+									entry,
+									fs,
+									signal: aborter.signal,
+									target,
+									lowerEntry: entry.toLocaleLowerCase(),
+									parentPath: dirname(entry),
+									resource,
+								},
+								(err, match) => {
+									if (err) {
+										j(err)
+										return
+									}
+									r(match)
+								},
+							)
+						},
+					)
 				})
 			} catch (err) {
 				if (err instanceof Error) {

@@ -6,7 +6,7 @@
       "name": "ignored-files",
       "dependencies": {
         "ms": "^2.1.3",
-        "view-ignored": "^0.11.0",
+        "view-ignored": "^0.11.1",
       },
       "devDependencies": {
         "@types/ms": "latest",
@@ -525,7 +525,7 @@
 
     "validate-npm-package-license": ["validate-npm-package-license@3.0.4", "", { "dependencies": { "spdx-correct": "^3.0.0", "spdx-expression-parse": "^3.0.0" } }, "sha512-DpKm2Ui/xN7/HQKCtpZxoRWBhZ9Z0kqtygG8XCgNQ8ZlDnxuQmWhj566j8fN4Cu3/JmbhsDo7fcAJq4s9h27Ew=="],
 
-    "view-ignored": ["view-ignored@0.11.0", "", { "dependencies": { "micromatch": "^4.0.8", "strip-json-comments": "^5.0.3" } }, "sha512-+6xtPd/JpnH4x51I+LqzEqwdpWfZrdIDDTlCVkBj3Fg/nFeNFGk0frhUGu8dbaiU9vSax9qJnZJr4erwic7Eyw=="],
+    "view-ignored": ["view-ignored@0.11.1", "", { "dependencies": { "micromatch": "^4.0.8", "strip-json-comments": "^5.0.3" } }, "sha512-ig7neN3AvijTkoOnjotTQOhte7oJRRhOv31yjWBIT5gBwVCWlPKlxhSqZXDDFbYuhOCNUbklfzIkGabUomTk9g=="],
 
     "which": ["which@1.3.1", "", { "dependencies": { "isexe": "^2.0.0" }, "bin": "bin/which" }, "sha512-HxJdYWq1MTIQbJ3nw0cqssHoTNU267KlrDuGZ1WYlxDStUtKUhOaJmh112/TZmHxxUfuJqPXSOm7tDyas0OSIQ=="],
 

@@ -5,7 +5,8 @@ import { resolveSources, RuleMatch } from "view-ignored/patterns"
 import * as vscode from "vscode"
 
 import { collectCauses } from "./collectCauses.js"
-import { NpmDecorationProvider } from "./decorationsProvider.js"
+import { setScanning } from "./context.js"
+import { DecorationProvider } from "./decorationsProvider.js"
 import { explain } from "./explain.js"
 import { output } from "./output.js"
 import { parseUri } from "./parseUri.js"
@@ -44,18 +45,20 @@ function pickValue(
 	})
 }
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
 	output.info("Started")
+	vscode.commands.executeCommand("setContext", "ignoredFiles.isReady", true)
+	setScanning(true)
 	context.subscriptions.push(output)
 
-	const derorationsProvider = new NpmDecorationProvider()
-	context.subscriptions.push(derorationsProvider)
-	context.subscriptions.push(vscode.window.registerFileDecorationProvider(derorationsProvider))
+	const decorationsProvider = new DecorationProvider()
+	context.subscriptions.push(decorationsProvider)
+	context.subscriptions.push(vscode.window.registerFileDecorationProvider(decorationsProvider))
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand("ignoredFiles.scan.clear", () => {
 			output.info("Clearing")
-			derorationsProvider.clear()
+			decorationsProvider.clear()
 		}),
 
 		vscode.commands.registerCommand("ignoredFiles.scan", async () => {
@@ -68,14 +71,12 @@ export function activate(context: vscode.ExtensionContext) {
 			if (!invert) return
 
 			const start = Date.now()
-			await derorationsProvider.scanWithProgress({
+			decorationsProvider.deinit()
+			await decorationsProvider.init({
 				target: targetFromName(targetName as TargetName),
-				fastDepth: true,
-				fastInternal: true,
 				invert: invert === "ignored",
 			})
-			const end = Date.now()
-			output.info("Scanned", targetName, "in", ms(end - start, { long: true }))
+			output.info("Scanned", targetName, "in", ms(Date.now() - start, { long: true }))
 		}),
 
 		vscode.commands.registerCommand("ignoredFiles.explain", async (entryUri: vscode.Uri) => {
@@ -162,18 +163,14 @@ export function activate(context: vscode.ExtensionContext) {
 				output.error(String(err))
 				throw err
 			}
-			const end = Date.now()
-			output.info("'" + entry + "' has been explained in", ms(end - start, { long: true }))
-			const explanation = explain(
-				false,
-				match,
-				targetName,
-				targetFromName(targetName as TargetName),
-			)
+			output.info("'" + entry + "' has been explained in", ms(Date.now() - start, { long: true }))
+			const explanation = explain(false, match, targetName as TargetName)
 			output.info("Got the explanation message: " + explanation)
 			void vscode.window.showInformationMessage(entry, { modal: true, detail: explanation })
 		}),
 	)
+
+	await decorationsProvider.init()
 }
 
 export function deactivate() {}

@@ -1,56 +1,81 @@
-import path from "node:path"
+import ms from "ms"
+import * as fs from "node:fs"
 import * as vign from "view-ignored"
-import { MatcherContext } from "view-ignored/patterns"
+import {
+	MatcherContext,
+	matcherContextAddPath,
+	matcherContextRemovePath,
+} from "view-ignored/patterns"
 import * as vscode from "vscode"
 
 import { collectCauses } from "./collectCauses.js"
+import { setScanning } from "./context.js"
 import { explain } from "./explain.js"
 import { output } from "./output.js"
-import { parseUri } from "./parseUri.js"
-import { TargetName, nameFromTarget, targetFromName } from "./targetName.js"
+import { parseUri, pathToUri } from "./parseUri.js"
+import { nameFromTarget, targetFromName } from "./targetName.js"
 
 export type DecorationKind = "ignored" | "included" | "unknown"
 
-export class NpmDecorationProvider implements vscode.FileDecorationProvider, vscode.Disposable {
-	private readonly _onDidChange = new vscode.EventEmitter<vscode.Uri>()
-	readonly onDidChangeFileDecorations = this._onDidChange.event.bind(this._onDidChange)
+export class DecorationProvider implements vscode.FileDecorationProvider, vscode.Disposable {
+	private readonly onDidChange = new vscode.EventEmitter<vscode.Uri>()
+	readonly onDidChangeFileDecorations = this.onDidChange.event.bind(this.onDidChange)
 
 	private decorations = new Map<string, DecorationKind>()
 
-	private ctx: MatcherContext | undefined
+	// @ts-expect-error initialized by init
+	private ctx: MatcherContext
 
 	constructor() {}
 
-	private targetName: TargetName | undefined
-	private aborter = new AbortController()
+	async init(options?: Partial<Omit<vign.ScanOptions, "cwd">>): Promise<void> {
+		setScanning(true)
+		await this.scan(options)
+		vscode.workspace.onDidChangeWorkspaceFolders(() => {
+			setScanning(true)
+			void this.scan(options)
+		})
+		this.watch()
+	}
 
-	private async scan(options: Omit<vign.ScanOptions, "cwd">): Promise<void> {
-		this.targetName = nameFromTarget(options.target)
+	private aborter = new AbortController()
+	private options: Required<Omit<vign.ScanOptions, "cwd">> = {
+		target: targetFromName("Git"),
+		fastDepth: true,
+		fastInternal: true,
+		invert: false,
+		depth: Infinity,
+		fs,
+		signal: null,
+		within: ".",
+	}
+
+	private async scan(options?: Partial<Omit<vign.ScanOptions, "cwd">>): Promise<void> {
+		assignOpt(this.options, options)
+		setScanning(true)
+		using _ = { [Symbol.dispose]: () => setScanning(false) }
 		await this.clear()
 		if (!vscode.workspace.workspaceFolders) {
 			return
 		}
 		for (const directory of vscode.workspace.workspaceFolders) {
 			const cwd = directory.uri.fsPath
-			const ctx = await vign.scan({ fastInternal: true, ...options, cwd })
+			const ctx = await vign.scan({ ...this.options, cwd })
 			this.ctx = ctx
 			for (const [file, _match] of ctx.paths) {
 				if (file.endsWith("/")) {
 					continue
 				}
-				const uri = vscode.Uri.file(path.join(cwd, file.replace("/", path.sep)))
-				const ignored = options.invert ?? false
+				const uri = pathToUri(cwd, file)
+				const ignored = this.options.invert
 				const decoration = ignored ? "ignored" : "included"
 				this.decorations.set(uri.fsPath, decoration)
-				this._onDidChange.fire(uri)
+				this.onDidChange.fire(uri)
 			}
 		}
 	}
 
-	private options: Omit<vign.ScanOptions, "cwd"> | undefined
-
 	scanWithProgress(options: Omit<vign.ScanOptions, "cwd">) {
-		this.options = options
 		try {
 			this.aborter.abort()
 			this.aborter = new AbortController()
@@ -103,20 +128,60 @@ export class NpmDecorationProvider implements vscode.FileDecorationProvider, vsc
 		})
 	}
 
+	private watch(signal: AbortSignal | null = null): void {
+		const start = Date.now()
+		const watcher = vscode.workspace.createFileSystemWatcher("**/*", false, false, false)
+		output.info("started watching in " + ms(Date.now() - start))
+		signal?.addEventListener("abort", async () => {
+			const start = Date.now()
+			watcher.dispose()
+			setScanning(false)
+			output.info("stopped watching in " + ms(Date.now() - start))
+		})
+		watcher.onDidChange(async (uri) => {
+			const f = parseUri(uri)
+			if (!f) return
+			const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
+			setScanning(true)
+			using _ = { [Symbol.dispose]: () => setScanning(false) }
+			await matcherContextRemovePath(this.ctx, opts, f.entry)
+			this.decorations.delete(uri.fsPath)
+			await matcherContextRemovePath(this.ctx, opts, f.entry)
+			await matcherContextAddPath(this.ctx, opts, f.entry)
+		})
+		watcher.onDidCreate(async (uri) => {
+			const f = parseUri(uri)
+			if (!f) return
+			const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
+			setScanning(true)
+			using _ = { [Symbol.dispose]: () => setScanning(false) }
+			await matcherContextAddPath(this.ctx, opts, f.entry)
+		})
+		watcher.onDidDelete(async (uri) => {
+			const f = parseUri(uri)
+			if (!f) return
+			const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
+			setScanning(true)
+			using _ = { [Symbol.dispose]: () => setScanning(false) }
+			await matcherContextRemovePath(this.ctx, opts, f.entry)
+			this.decorations.delete(uri.fsPath)
+		})
+	}
+
 	async clear(): Promise<void> {
+		this.deinit()
 		const map = this.decorations
 		this.decorations = new Map<string, DecorationKind>()
 		for (const [fsPath] of map) {
 			this.decorations.delete(fsPath)
 			const uri = vscode.Uri.file(fsPath)
-			this._onDidChange.fire(uri)
+			this.onDidChange.fire(uri)
 		}
 	}
 
 	provideFileDecoration(uri: vscode.Uri): vscode.ProviderResult<vscode.FileDecoration> {
 		if (!this.ctx || this.decorations.size < 0) return
-		const targetName = this.targetName!
-		const target = targetFromName(targetName)
+		const target = this.options.target
 		const parsed = parseUri(uri)
 		if (!parsed) {
 			return
@@ -124,7 +189,7 @@ export class NpmDecorationProvider implements vscode.FileDecorationProvider, vsc
 		const { entry } = parsed
 		const match = this.ctx?.paths.get(entry)
 		const explanation = match
-			? explain(this.options?.invert ?? false, match, targetName, target)
+			? explain(this.options?.invert ?? false, match, target)
 			: "Internal error, couldn't find " + entry
 		switch (this.decorations.get(uri.fsPath)) {
 			case "ignored":
@@ -148,10 +213,35 @@ export class NpmDecorationProvider implements vscode.FileDecorationProvider, vsc
 		}
 	}
 
+	/**
+	 * Disposes current scanning `scan` and `watch` operations.
+	 * Use `init` to restart them again.
+	 */
+	deinit(): void {
+		try {
+			this.aborter.abort()
+			this.aborter = new AbortController()
+		} catch {}
+	}
+
+	/**
+	 * Runs only on `extension.deactivate` event. Never use it.
+	 */
 	dispose() {
 		try {
 			this.aborter.abort()
 		} catch {}
 		this.clear()
 	}
+}
+
+function assignOpt(target: any, ...sources: any[]) {
+	for (const src of sources) {
+		if (!src) continue
+		for (const key in src) {
+			if (!Object.hasOwn(src, key) || src[key] === undefined) continue
+			target[key] = src[key]
+		}
+	}
+	return target
 }

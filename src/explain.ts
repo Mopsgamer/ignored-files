@@ -2,13 +2,11 @@ import { RuleMatch, RuleMatchKind } from "view-ignored/patterns"
 import { Target } from "view-ignored/targets"
 
 import { output } from "./output.js"
+import { nameFromTarget, targetFromName, TargetName } from "./targetName.js"
 
-export function explain(
-	inverted: boolean,
-	match: RuleMatch,
-	targetName: string,
-	target: Target,
-): string {
+export function explain(inverted: boolean, match: RuleMatch, t: TargetName | Target): string {
+	const targetName = typeof t === "string" ? t : nameFromTarget(t)
+	const target = typeof t === "string" ? targetFromName(t) : t
 	let reason = inverted ? "Ignored" : "Included"
 	reason += " by " + targetName
 	const potential =

@@ -1,3 +1,4 @@
+import { sep } from "node:path"
 import * as vscode from "vscode"
 
 import { output } from "./output.js"
@@ -26,4 +27,8 @@ export function parseUri(uri: vscode.Uri): { entry: string; cwd: string } | void
 		.replace(/^\\|^\//, "")
 		.replaceAll(/\\/g, "/")
 	return { entry, cwd }
+}
+
+export function pathToUri(cwd: string, path: string): vscode.Uri {
+	return vscode.Uri.file(cwd + "/" + path.replace("/", sep))
 }

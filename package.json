@@ -23,7 +23,7 @@
 		"watch:esbuild": "node esbuild.js --watch",
 		"watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
 		"package": "npm run check-types && npm run lint && node esbuild.js --production",
-		"vsix": "vsce package --packageManager npm",
+		"vsix": "vsce package",
 		"check-types": "tsgo --noEmit",
 		"lint": "oxlint",
 		"fmt": "oxfmt"
@@ -34,27 +34,37 @@
 	},
 	"devDependencies": {
 		"@types/ms": "latest",
-		"@types/node": "^20.19.33",
-		"@types/vscode": "latest",
+		"@types/node": "^20.19.41",
+		"@types/vscode": "^1.107.0",
 		"@typescript/native-preview": "latest",
 		"@vscode/test-electron": "^2.5.2",
+		"@vscode/vsce": "^3.9.1",
 		"esbuild": "latest",
 		"npm-run-all": "latest",
 		"oxfmt": "latest",
 		"oxlint": "latest",
-		"typescript": "^6"
+		"typescript": "^6.0.3"
 	},
 	"contributes": {
 		"commands": [
 			{
-				"title": "Clear decorations",
+				"title": "Disable decorations",
 				"command": "ignoredFiles.scan.clear",
-				"category": "Ignored Files"
+				"category": "Ignored Files",
+				"icon": "$(clear-all)"
 			},
 			{
 				"title": "Scan decorations",
 				"command": "ignoredFiles.scan",
-				"category": "Ignored Files"
+				"category": "Ignored Files",
+				"icon": "$(source-control-view-icon)"
+			},
+			{
+				"title": "Explain ignoring reasons",
+				"command": "ignoredFiles.explain",
+				"category": "Ignored Files",
+				"enablement": "filesExplorerFocus && foldersViewVisible && !explorerResourceIsRoot",
+				"icon": "$(question)"
 			}
 		],
 		"menus": {
@@ -64,10 +74,24 @@
 					"group": "explainignoring",
 					"when": "filesExplorerFocus && foldersViewVisible && !explorerResourceIsRoot"
 				}
+			],
+			"view/title": [
+				{
+					"command": "ignoredFiles.scan.clear",
+					"when": "view == workbench.explorer.fileView && ignoredFiles.isScanning",
+					"group": "navigation"
+				},
+				{
+					"command": "ignoredFiles.scan",
+					"when": "view == workbench.explorer.fileView && ignoredFiles.isReady && !ignoredFiles.isScanning",
+					"group": "navigation"
+				}
 			]
 		}
 	},
-	"activationEvents": [],
+	"activationEvents": [
+		"onStartupFinished"
+	],
 	"engines": {
 		"vscode": "^1.107.0"
 	}

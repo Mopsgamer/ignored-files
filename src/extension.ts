@@ -10,13 +10,7 @@ import { DecorationProvider } from "./decorationsProvider.js"
 import { explain } from "./explain.js"
 import { output } from "./output.js"
 import { parseUri } from "./parseUri.js"
-import {
-	TargetName,
-	nameFromTarget,
-	relatedTargets,
-	targetFromName,
-	targetNames,
-} from "./targetName.js"
+import { TargetName, nameFromTarget, relatedTargets, targetFromName } from "./targetName.js"
 
 function pickValue(
 	title: string,
@@ -60,8 +54,13 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 		vscode.commands.registerCommand("ignoredFiles.scan", async () => {
 			const title = "Scan for ignored files"
-			const targetName = await pickValue(title, "Select the target", [...targetNames])
+			const related = (await relatedTargets()).map(nameFromTarget)
+			const targetName = await pickValue(title, "Select the target", ["None", ...related])
 			if (!targetName) return
+			if (targetName === "None") {
+				await vscode.commands.executeCommand("ignoredFiles.scan.clear")
+				return
+			}
 			const invert = await pickValue(title, "Enable invertion?", ["included", "ignored"])
 			if (!invert) return
 			const start = Date.now()
@@ -82,8 +81,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			const title = "Explain ignoring for " + entry
 			const aborter = new AbortController()
 			const unixCwd = cwd.replace(/\w:/, "")
-			const related = await relatedTargets(unixCwd, fs, aborter.signal)
-			const targetName = await pickValue(title, "Select the target", related.map(nameFromTarget))
+			const related = (await relatedTargets(aborter.signal)).map(nameFromTarget)
+			const targetName = await pickValue(title, "Select the target", related)
 			if (!targetName) return
 			const target = targetFromName(targetName as TargetName)
 			output.info("Explaining '" + entry + "'. targetName is " + targetName)

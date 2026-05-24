@@ -1,5 +1,6 @@
-import { FsAdapter } from "view-ignored"
+import * as fs from "fs"
 import * as targets from "view-ignored/targets"
+import * as vscode from "vscode"
 
 export type TargetName = "NPM" | "Yarn" | "Yarn classic" | "VSCE" | "Git" | "Bun" | "Deno" | "JSR"
 
@@ -60,31 +61,32 @@ export function nameFromTarget(target: targets.Target): TargetName {
 	}
 }
 
-export async function relatedTargets(
-	cwd: string,
-	fs: FsAdapter,
-	signal: AbortSignal,
-): Promise<targets.Target[]> {
+export async function relatedTargets(signal: AbortSignal | null = null): Promise<targets.Target[]> {
 	const safeTargets: targets.Target[] = []
-	for (const target of targetProviders) {
-		if (!target.init) {
+	if (!vscode.workspace.workspaceFolders) {
+		return safeTargets
+	}
+	for (const folder of vscode.workspace.workspaceFolders) {
+		for (const target of targetProviders) {
+			if (!target.init) {
+				safeTargets.push(target)
+				continue
+			}
+			try {
+				await new Promise<void>((r, j) =>
+					target.init?.({ cwd: folder.uri.fsPath, fs, signal, target }, (err) => {
+						if (err) {
+							j(err)
+							return
+						}
+						r()
+					}),
+				)
+			} catch {
+				continue
+			}
 			safeTargets.push(target)
-			continue
 		}
-		try {
-			await new Promise<void>((r, j) =>
-				target.init?.({ cwd, fs, signal, target }, (err) => {
-					if (err) {
-						j(err)
-						return
-					}
-					r()
-				}),
-			)
-		} catch {
-			continue
-		}
-		safeTargets.push(target)
 	}
 	return safeTargets
 }

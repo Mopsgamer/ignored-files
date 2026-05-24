@@ -1,4 +1,5 @@
 {
+	"exclude": ["scripts"],
 	"compilerOptions": {
 		"module": "nodenext",
 		"target": "esnext",

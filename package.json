@@ -25,11 +25,13 @@
 		"package": "npm run check-types && npm run lint && node esbuild.js --production",
 		"vsix": "vsce package",
 		"check-types": "tsgo --noEmit",
+		"check": "bun check-types",
 		"lint": "oxlint",
 		"fmt": "oxfmt"
 	},
 	"dependencies": {
 		"ms": "^2.1.3",
+		"simple-icons": "^16.21.0",
 		"view-ignored": "^0.11.1"
 	},
 	"devDependencies": {
@@ -46,6 +48,50 @@
 		"typescript": "^6.0.3"
 	},
 	"contributes": {
+		"icons": {
+			"view-ignored-npm": {
+				"description": "Deno icon provided by View ignored",
+				"default": {
+					"fontCharacter": "\\f1eb",
+					"fontPath": "./SimpleIcons.woff"
+				}
+			},
+			"view-ignored-yarn": {
+				"description": "Deno icon provided by View ignored",
+				"default": {
+					"fontCharacter": "\\f72f",
+					"fontPath": "./SimpleIcons.woff"
+				}
+			},
+			"view-ignored-git": {
+				"description": "Deno icon provided by View ignored",
+				"default": {
+					"fontCharacter": "\\ee52",
+					"fontPath": "./SimpleIcons.woff"
+				}
+			},
+			"view-ignored-bun": {
+				"description": "Deno icon provided by View ignored",
+				"default": {
+					"fontCharacter": "\\eba7",
+					"fontPath": "./SimpleIcons.woff"
+				}
+			},
+			"view-ignored-deno": {
+				"description": "Deno icon provided by View ignored",
+				"default": {
+					"fontCharacter": "\\ece2",
+					"fontPath": "./SimpleIcons.woff"
+				}
+			},
+			"view-ignored-jsr": {
+				"description": "Deno icon provided by View ignored",
+				"default": {
+					"fontCharacter": "\\efe1",
+					"fontPath": "./SimpleIcons.woff"
+				}
+			}
+		},
 		"commands": [
 			{
 				"title": "Disable decorations",

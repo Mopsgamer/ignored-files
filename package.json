@@ -50,19 +50,19 @@
 			{
 				"title": "Disable decorations",
 				"command": "viewIgnored.scan.clear",
-				"category": "Ignored Files",
+				"category": "View ignored",
 				"icon": "$(clear-all)"
 			},
 			{
 				"title": "Scan decorations",
 				"command": "viewIgnored.scan",
-				"category": "Ignored Files",
+				"category": "View ignored",
 				"icon": "$(source-control-view-icon)"
 			},
 			{
 				"title": "Explain ignoring reasons",
 				"command": "viewIgnored.explain",
-				"category": "Ignored Files",
+				"category": "View ignored",
 				"enablement": "filesExplorerFocus && foldersViewVisible && !explorerResourceIsRoot",
 				"icon": "$(question)"
 			}

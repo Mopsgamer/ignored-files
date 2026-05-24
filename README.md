@@ -10,7 +10,7 @@ See https://github.com/Mopsgamer/view-ignored for details.
 
 ## Features
 
-- `Ignored Files: Scan decorations`, `Ignored Files: Clear decorations`
+- `View ignored: Scan decorations`, `View ignored: Clear decorations`
 
 ![File tree hover preview](https://raw.githubusercontent.com/Mopsgamer/view-ignored-vscode/main/images/hover.png)
 

@@ -1,26 +1,9 @@
 import * as vscode from "vscode"
 
-let scanningTimeout: NodeJS.Timeout | undefined = undefined
-let isCurrentlyScanning = false
+export function setReady(value: boolean): void {
+	vscode.commands.executeCommand("setContext", "viewIgnored.isReady", value)
+}
 
 export function setScanning(value: boolean): void {
-	if (value) {
-		if (scanningTimeout) {
-			clearTimeout(scanningTimeout)
-			scanningTimeout = undefined
-		}
-		if (!isCurrentlyScanning) {
-			isCurrentlyScanning = true
-			vscode.commands.executeCommand("setContext", "viewIgnored.isScanning", true)
-		}
-		return
-	}
-
-	if (scanningTimeout) clearTimeout(scanningTimeout)
-
-	scanningTimeout = setTimeout(() => {
-		isCurrentlyScanning = false
-		vscode.commands.executeCommand("setContext", "viewIgnored.isScanning", false)
-		scanningTimeout = undefined
-	}, 150) // TODO: use git's extension time
+	vscode.commands.executeCommand("setContext", "viewIgnored.isScanning", value)
 }

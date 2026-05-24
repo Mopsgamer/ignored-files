@@ -51,12 +51,14 @@
 				"title": "Disable decorations",
 				"command": "viewIgnored.scan.clear",
 				"category": "View ignored",
+				"enablement": "viewIgnored.isReady && viewIgnored.isScanning",
 				"icon": "$(clear-all)"
 			},
 			{
 				"title": "Scan decorations",
 				"command": "viewIgnored.scan",
 				"category": "View ignored",
+				"enablement": "viewIgnored.isReady && !viewIgnored.isScanning",
 				"icon": "$(source-control-view-icon)"
 			},
 			{
@@ -78,7 +80,7 @@
 			"view/title": [
 				{
 					"command": "viewIgnored.scan.clear",
-					"when": "view == workbench.explorer.fileView && viewIgnored.isScanning",
+					"when": "view == workbench.explorer.fileView && viewIgnored.isReady && viewIgnored.isScanning",
 					"group": "navigation"
 				},
 				{

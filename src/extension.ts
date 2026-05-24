@@ -41,24 +41,24 @@ function pickValue(
 
 export async function activate(context: vscode.ExtensionContext) {
 	output.info("Started")
-	vscode.commands.executeCommand("setContext", "ignoredFiles.isReady", true)
+	vscode.commands.executeCommand("setContext", "viewIgnored.isReady", true)
 	setScanning(true)
 	context.subscriptions.push(output)
 	const decorationsProvider = new DecorationProvider()
 	context.subscriptions.push(decorationsProvider)
 	context.subscriptions.push(vscode.window.registerFileDecorationProvider(decorationsProvider))
 	context.subscriptions.push(
-		vscode.commands.registerCommand("ignoredFiles.scan.clear", () => {
+		vscode.commands.registerCommand("viewIgnored.scan.clear", () => {
 			output.info("Clearing")
 			decorationsProvider.clear()
 		}),
-		vscode.commands.registerCommand("ignoredFiles.scan", async () => {
+		vscode.commands.registerCommand("viewIgnored.scan", async () => {
 			const title = "Scan for ignored files"
 			const related = (await relatedTargets()).map(nameFromTarget)
 			const targetName = await pickValue(title, "Select the target", ["None", ...related])
 			if (!targetName) return
 			if (targetName === "None") {
-				await vscode.commands.executeCommand("ignoredFiles.scan.clear")
+				await vscode.commands.executeCommand("viewIgnored.scan.clear")
 				return
 			}
 			const invert = await pickValue(title, "Enable invertion?", ["included", "ignored"])
@@ -71,7 +71,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			})
 			output.info("Scanned", targetName, "in", ms(Date.now() - start, { long: true }))
 		}),
-		vscode.commands.registerCommand("ignoredFiles.explain", async (entryUri: vscode.Uri) => {
+		vscode.commands.registerCommand("viewIgnored.explain", async (entryUri: vscode.Uri) => {
 			if (!(entryUri instanceof vscode.Uri)) {
 				return
 			}

@@ -1,6 +1,6 @@
 {
-	"name": "ignored-files",
-	"displayName": "Ignored files",
+	"name": "view-ignored-vscode",
+	"displayName": "View ignored",
 	"version": "0.0.1",
 	"description": "Retrieve list of files ignored/included by Git, NPM, Yarn, JSR, VSCE or other tools.",
 	"categories": [
@@ -11,7 +11,7 @@
 	"author": "Mopsgamer",
 	"repository": {
 		"type": "git",
-		"url": "git://github.com/Mopsgamer/ignored-files.git"
+		"url": "git://github.com/Mopsgamer/view-ignored-vscode.git"
 	},
 	"publisher": "Mopsgamer",
 	"type": "module",
@@ -49,19 +49,19 @@
 		"commands": [
 			{
 				"title": "Disable decorations",
-				"command": "ignoredFiles.scan.clear",
+				"command": "viewIgnored.scan.clear",
 				"category": "Ignored Files",
 				"icon": "$(clear-all)"
 			},
 			{
 				"title": "Scan decorations",
-				"command": "ignoredFiles.scan",
+				"command": "viewIgnored.scan",
 				"category": "Ignored Files",
 				"icon": "$(source-control-view-icon)"
 			},
 			{
 				"title": "Explain ignoring reasons",
-				"command": "ignoredFiles.explain",
+				"command": "viewIgnored.explain",
 				"category": "Ignored Files",
 				"enablement": "filesExplorerFocus && foldersViewVisible && !explorerResourceIsRoot",
 				"icon": "$(question)"
@@ -70,20 +70,20 @@
 		"menus": {
 			"explorer/context": [
 				{
-					"command": "ignoredFiles.explain",
+					"command": "viewIgnored.explain",
 					"group": "explainignoring",
 					"when": "filesExplorerFocus && foldersViewVisible && !explorerResourceIsRoot"
 				}
 			],
 			"view/title": [
 				{
-					"command": "ignoredFiles.scan.clear",
-					"when": "view == workbench.explorer.fileView && ignoredFiles.isScanning",
+					"command": "viewIgnored.scan.clear",
+					"when": "view == workbench.explorer.fileView && viewIgnored.isScanning",
 					"group": "navigation"
 				},
 				{
-					"command": "ignoredFiles.scan",
-					"when": "view == workbench.explorer.fileView && ignoredFiles.isReady && !ignoredFiles.isScanning",
+					"command": "viewIgnored.scan",
+					"when": "view == workbench.explorer.fileView && viewIgnored.isReady && !viewIgnored.isScanning",
 					"group": "navigation"
 				}
 			]

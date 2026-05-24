@@ -11,7 +11,7 @@ export function setScanning(value: boolean): void {
 		}
 		if (!isCurrentlyScanning) {
 			isCurrentlyScanning = true
-			vscode.commands.executeCommand("setContext", "ignoredFiles.isScanning", true)
+			vscode.commands.executeCommand("setContext", "viewIgnored.isScanning", true)
 		}
 		return
 	}
@@ -20,7 +20,7 @@ export function setScanning(value: boolean): void {
 
 	scanningTimeout = setTimeout(() => {
 		isCurrentlyScanning = false
-		vscode.commands.executeCommand("setContext", "ignoredFiles.isScanning", false)
+		vscode.commands.executeCommand("setContext", "viewIgnored.isScanning", false)
 		scanningTimeout = undefined
 	}, 150) // TODO: use git's extension time
 }

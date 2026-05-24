@@ -50,26 +50,20 @@ export async function activate(context: vscode.ExtensionContext) {
 	vscode.commands.executeCommand("setContext", "ignoredFiles.isReady", true)
 	setScanning(true)
 	context.subscriptions.push(output)
-
 	const decorationsProvider = new DecorationProvider()
 	context.subscriptions.push(decorationsProvider)
 	context.subscriptions.push(vscode.window.registerFileDecorationProvider(decorationsProvider))
-
 	context.subscriptions.push(
 		vscode.commands.registerCommand("ignoredFiles.scan.clear", () => {
 			output.info("Clearing")
 			decorationsProvider.clear()
 		}),
-
 		vscode.commands.registerCommand("ignoredFiles.scan", async () => {
 			const title = "Scan for ignored files"
-
 			const targetName = await pickValue(title, "Select the target", [...targetNames])
 			if (!targetName) return
-
 			const invert = await pickValue(title, "Enable invertion?", ["included", "ignored"])
 			if (!invert) return
-
 			const start = Date.now()
 			decorationsProvider.deinit()
 			await decorationsProvider.init({
@@ -78,28 +72,22 @@ export async function activate(context: vscode.ExtensionContext) {
 			})
 			output.info("Scanned", targetName, "in", ms(Date.now() - start, { long: true }))
 		}),
-
 		vscode.commands.registerCommand("ignoredFiles.explain", async (entryUri: vscode.Uri) => {
 			if (!(entryUri instanceof vscode.Uri)) {
 				return
 			}
 			const parsed = parseUri(entryUri)
 			if (!parsed) return
-
 			const { cwd, entry } = parsed
 			const title = "Explain ignoring for " + entry
 			const aborter = new AbortController()
 			const unixCwd = cwd.replace(/\w:/, "")
-
 			const related = await relatedTargets(unixCwd, fs, aborter.signal)
-
 			const targetName = await pickValue(title, "Select the target", related.map(nameFromTarget))
 			if (!targetName) return
 			const target = targetFromName(targetName as TargetName)
 			output.info("Explaining '" + entry + "'. targetName is " + targetName)
-
 			output.info("Scanning to explain...")
-
 			const start = Date.now()
 			let match: RuleMatch
 			try {
@@ -169,7 +157,6 @@ export async function activate(context: vscode.ExtensionContext) {
 			void vscode.window.showInformationMessage(entry, { modal: true, detail: explanation })
 		}),
 	)
-
 	await decorationsProvider.init()
 }
 

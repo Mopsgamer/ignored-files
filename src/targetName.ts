@@ -71,7 +71,6 @@ export async function relatedTargets(
 			safeTargets.push(target)
 			continue
 		}
-
 		try {
 			await new Promise<void>((r, j) =>
 				target.init?.({ cwd, fs, signal, target }, (err) => {

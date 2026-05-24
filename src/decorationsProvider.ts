@@ -67,12 +67,26 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 					continue
 				}
 				const uri = pathToUri(cwd, file)
-				const ignored = this.options.invert
-				const decoration = ignored ? "ignored" : "included"
-				this.decorations.set(uri.fsPath, decoration)
-				this.onDidChange.fire(uri)
+				this.add(uri)
 			}
 		}
+	}
+
+	/**
+	 * This function recalculates decoration.
+	 */
+	add(uri: vscode.Uri) {
+		const ignored = this.options.invert
+		const decoration = ignored ? "ignored" : "included"
+		this.decorations.set(uri.fsPath, decoration)
+		this.onDidChange.fire(uri)
+	}
+	/**
+	 * This function recalculates decoration.
+	 */
+	del(uri: vscode.Uri) {
+		this.decorations.delete(uri.fsPath)
+		this.onDidChange.fire(uri)
 	}
 
 	scanWithProgress(options: Omit<vign.ScanOptions, "cwd">) {
@@ -90,11 +104,9 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 				},
 				async (_progress, token) => {
 					const aborter = new AbortController()
-
 					token.onCancellationRequested(() => {
 						aborter.abort()
 					})
-
 					const signals = [this.aborter.signal, aborter.signal]
 					if (options.signal) {
 						signals.push(options.signal)
@@ -131,40 +143,59 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	private watch(signal: AbortSignal | null = null): void {
 		const start = Date.now()
 		const watcher = vscode.workspace.createFileSystemWatcher("**/*", false, false, false)
-		output.info("started watching in " + ms(Date.now() - start))
+		output.info("Started watching in " + ms(Date.now() - start))
 		signal?.addEventListener("abort", async () => {
 			const start = Date.now()
 			watcher.dispose()
 			setScanning(false)
-			output.info("stopped watching in " + ms(Date.now() - start))
+			output.info("Stopped watching in " + ms(Date.now() - start))
 		})
 		watcher.onDidChange(async (uri) => {
 			const f = parseUri(uri)
 			if (!f) return
 			const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
 			setScanning(true)
+			output.info("File changed:", f.entry)
 			using _ = { [Symbol.dispose]: () => setScanning(false) }
-			await matcherContextRemovePath(this.ctx, opts, f.entry)
-			this.decorations.delete(uri.fsPath)
+			this.del(uri)
+			const before = new Set(this.ctx.paths.keys())
 			await matcherContextRemovePath(this.ctx, opts, f.entry)
 			await matcherContextAddPath(this.ctx, opts, f.entry)
+			const after = new Set(this.ctx.paths.keys())
+			const added = Array.from(after.difference(before)),
+				removed = Array.from(before.difference(after))
+			output.info("Added:", f.entry, added)
+			for (const element of added) {
+				if (element.endsWith("/")) continue
+				const uri = pathToUri(f.cwd, element)
+				this.add(uri)
+			}
+			output.info("Deleted:", f.entry, removed)
+			for (const element of removed) {
+				if (element.endsWith("/")) continue
+				const uri = pathToUri(f.cwd, element)
+				this.del(uri)
+			}
 		})
 		watcher.onDidCreate(async (uri) => {
 			const f = parseUri(uri)
 			if (!f) return
 			const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
 			setScanning(true)
+			output.info("File created:", f.entry)
 			using _ = { [Symbol.dispose]: () => setScanning(false) }
 			await matcherContextAddPath(this.ctx, opts, f.entry)
+			this.add(uri)
 		})
 		watcher.onDidDelete(async (uri) => {
 			const f = parseUri(uri)
 			if (!f) return
 			const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
 			setScanning(true)
+			output.info("File deleted:", f.entry)
 			using _ = { [Symbol.dispose]: () => setScanning(false) }
 			await matcherContextRemovePath(this.ctx, opts, f.entry)
-			this.decorations.delete(uri.fsPath)
+			this.del(uri)
 		})
 	}
 
@@ -173,9 +204,8 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		const map = this.decorations
 		this.decorations = new Map<string, DecorationKind>()
 		for (const [fsPath] of map) {
-			this.decorations.delete(fsPath)
 			const uri = vscode.Uri.file(fsPath)
-			this.onDidChange.fire(uri)
+			this.del(uri)
 		}
 	}
 
@@ -199,7 +229,6 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 					propagate: true,
 					color: new vscode.ThemeColor("gitDecoration.ignoredResourceForeground"),
 				}
-
 			case "included":
 				return {
 					badge: "+",
@@ -207,7 +236,6 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 					propagate: true,
 					color: new vscode.ThemeColor("gitDecoration.untrackedResourceForeground"),
 				}
-
 			default:
 				return
 		}

@@ -9,7 +9,12 @@ import { explain } from "../explain.js"
 import { output } from "../output.js"
 import { parseUri } from "../parseUri.js"
 import pickValue from "../pickValue.js"
-import { nameFromTarget, relatedTargets, targetFromName, TargetName } from "../targetName.js"
+import {
+	nameFromTargetMaker,
+	relatedTargets,
+	targetMakerFromName,
+	TargetName,
+} from "../targetName.js"
 
 export default async function (entryUri: vscode.Uri): Promise<void> {
 	if (!(entryUri instanceof vscode.Uri)) return
@@ -19,10 +24,11 @@ export default async function (entryUri: vscode.Uri): Promise<void> {
 	const title = "Explain ignoring for " + entry
 	const aborter = new AbortController()
 	const unixCwd = cwd.replace(/\w:/, "")
-	const related = (await relatedTargets(aborter.signal)).map(nameFromTarget)
+	const related = (await relatedTargets(aborter.signal)).map(nameFromTargetMaker)
 	const targetName = await pickValue(title, "Select the target", related)
 	if (!targetName) return
-	const target = targetFromName(targetName as TargetName)
+	const targetMaker = targetMakerFromName(targetName as TargetName)
+	const target = targetMaker()
 	output.info("Explaining '" + entry + "'. targetName is " + targetName)
 	output.info("Scanning to explain...")
 	const start = Date.now()

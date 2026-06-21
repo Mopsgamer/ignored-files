@@ -15,61 +15,64 @@ export const targetNames: TargetName[] = [
 	"JSR",
 ]
 
-export const targetProviders = targetNames.map(targetFromName)
+export const targetProviders = targetNames.map(targetMakerFromName)
 
-export function targetFromName(name: TargetName): targets.Target {
+export function targetMakerFromName(name: TargetName): () => targets.Target {
 	switch (name) {
 		case "NPM":
-			return targets.NPM
+			return targets.makeNPM
 		case "Yarn":
-			return targets.Yarn
+			return targets.makeYarn
 		case "Yarn classic":
-			return targets.YarnClassic
+			return targets.makeYarnClassic
 		case "VSCE":
-			return targets.VSCE
+			return targets.makeVSCE
 		case "Git":
-			return targets.Git
+			return targets.makeGit
 		case "Bun":
-			return targets.Bun
+			return targets.makeBun
 		case "Deno":
-			return targets.Deno
+			return targets.makeDeno
 		case "JSR":
-			return targets.JSR
+			return targets.makeJSR
 	}
 }
 
-export function nameFromTarget(target: targets.Target): TargetName {
-	switch (target) {
-		case targets.NPM:
+export function nameFromTargetMaker(targetMaker: () => targets.Target): TargetName {
+	switch (targetMaker) {
+		case targets.makeNPM:
 			return "NPM"
-		case targets.Yarn:
+		case targets.makeYarn:
 			return "Yarn"
-		case targets.YarnClassic:
+		case targets.makeYarnClassic:
 			return "Yarn classic"
-		case targets.VSCE:
+		case targets.makeVSCE:
 			return "VSCE"
-		case targets.Git:
+		case targets.makeGit:
 			return "Git"
-		case targets.Bun:
+		case targets.makeBun:
 			return "Bun"
-		case targets.Deno:
+		case targets.makeDeno:
 			return "Deno"
-		case targets.JSR:
+		case targets.makeJSR:
 			return "JSR"
 		default:
 			throw new TypeError("Unknown target")
 	}
 }
 
-export async function relatedTargets(signal: AbortSignal | null = null): Promise<targets.Target[]> {
-	const safeTargets: targets.Target[] = []
+export async function relatedTargets(
+	signal: AbortSignal | null = null,
+): Promise<(() => targets.Target)[]> {
+	const safeTargets: (() => targets.Target)[] = []
 	if (!vscode.workspace.workspaceFolders) {
 		return safeTargets
 	}
 	for (const folder of vscode.workspace.workspaceFolders) {
-		for (const target of targetProviders) {
+		for (const targetMaker of targetProviders) {
+			const target = targetMaker()
 			if (!target.init) {
-				safeTargets.push(target)
+				safeTargets.push(targetMaker)
 				continue
 			}
 			try {
@@ -85,7 +88,7 @@ export async function relatedTargets(signal: AbortSignal | null = null): Promise
 			} catch {
 				continue
 			}
-			safeTargets.push(target)
+			safeTargets.push(targetMaker)
 		}
 	}
 	return safeTargets

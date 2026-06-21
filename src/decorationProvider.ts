@@ -1,7 +1,12 @@
 import ms from "ms"
 import * as fs from "node:fs"
 import * as vign from "view-ignored"
-import { MatcherContext } from "view-ignored/patterns"
+import {
+	MatcherContext,
+	matcherContextAddPath,
+	matcherContextRemovePath,
+} from "view-ignored/patterns"
+import { makeGit, Target } from "view-ignored/targets"
 import * as vscode from "vscode"
 
 import { setScanning } from "./context.js"
@@ -9,7 +14,7 @@ import { explain } from "./explain.js"
 import { output } from "./output.js"
 import { parseUri, pathToUri } from "./parseUri.js"
 import { Semaphore } from "./semaphore.js"
-import { targetFromName } from "./targetName.js"
+import { targetMakerFromName } from "./targetName.js"
 
 export type DecorationKind = "ignored" | "included" | "unknown"
 
@@ -27,7 +32,9 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 
 	constructor() {}
 
-	async init(options?: Partial<Omit<vign.ScanOptions, "cwd">>): Promise<void> {
+	async init(
+		options?: Partial<Omit<vign.ScanOptions, "cwd" | "target">> & { target?: () => Target },
+	): Promise<void> {
 		setScanning(true)
 		await this.scan(options)
 		vscode.workspace.onDidChangeWorkspaceFolders(async () => {
@@ -42,18 +49,22 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 
 	private aborter = new AbortController()
 	private options: Required<Omit<vign.ScanOptions, "cwd">> = {
-		target: targetFromName("Git"),
-		fastDepth: true,
-		fastInternal: true,
+		target: targetMakerFromName("Git")(),
+		skipDepth: true,
+		skipInternal: true,
 		invert: false,
 		depth: Infinity,
 		fs,
 		signal: null,
 		within: ".",
 	}
+	private targetMaker: () => Target = makeGit
 
-	private async scan(options?: Partial<Omit<vign.ScanOptions, "cwd">>): Promise<void> {
+	private async scan(
+		options?: Partial<Omit<vign.ScanOptions, "cwd" | "target">> & { target?: () => Target },
+	): Promise<void> {
 		assignOpt(this.options, options)
+		this.targetMaker = options?.target || makeGit
 		setScanning(true)
 		using _ = { [Symbol.dispose]: () => setScanning(false) }
 		await this.clear()
@@ -147,23 +158,23 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			watcher.onDidChange(
 				this.didAny("changed", async (f) => {
 					const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
-					// await matcherContextRemovePath(this.ctx, opts, f.entry)
-					// await matcherContextAddPath(this.ctx, opts, f.entry)
-					this.ctx = await vign.scan(opts)
+					await matcherContextRemovePath(this.ctx, opts, f.entry)
+					await matcherContextAddPath(this.ctx, opts, f.entry)
+					// this.ctx = await vign.scan(opts)
 				}),
 			),
 			watcher.onDidChange(
 				this.didAny("created", async (f) => {
 					const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
-					// await matcherContextAddPath(this.ctx, opts, f.entry)
-					this.ctx = await vign.scan(opts)
+					await matcherContextAddPath(this.ctx, opts, f.entry)
+					// this.ctx = await vign.scan(opts)
 				}),
 			),
 			watcher.onDidChange(
 				this.didAny("deleted", async (f) => {
 					const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
-					// await matcherContextRemovePath(this.ctx, opts, f.entry)
-					this.ctx = await vign.scan(opts)
+					await matcherContextRemovePath(this.ctx, opts, f.entry)
+					// this.ctx = await vign.scan(opts)
 				}),
 			),
 		)
@@ -181,12 +192,11 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 
 	provideFileDecoration(uri: vscode.Uri): vscode.ProviderResult<vscode.FileDecoration> {
 		if (!this.ctx || this.decorations.size < 0) return
-		const target = this.options.target
 		const parsed = parseUri(uri)
 		if (!parsed) return
 		const match = this.ctx?.paths.get(parsed.entry)
 		const tooltip = match
-			? explain(this.options?.invert ?? false, match, target)
+			? explain(this.options?.invert ?? false, match, this.targetMaker)
 			: "Internal error, couldn't find " + parsed.entry
 		const propagate = true
 		// let color: vscode.ThemeColor

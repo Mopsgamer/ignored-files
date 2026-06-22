@@ -36,14 +36,22 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	): Promise<void> {
 		setScanning(true)
 		await this.scan(options)
-		vscode.workspace.onDidChangeWorkspaceFolders(async () => {
-			setScanning(true)
-			using folders = this.mutexWorspaceFolderChange.tryAcquire()
-			if (!folders) return
-			using _scanning = this.mutexWatcher.tryAcquire()
-			await this.scan(options)
+
+		this.aborter.signal.addEventListener("abort", () => {
+			vscode.workspace
+				.onDidChangeWorkspaceFolders(async () => {
+					setScanning(true)
+					using folders = this.mutexWorspaceFolderChange.tryAcquire()
+					if (!folders) {
+						setScanning(false)
+						return
+					}
+					using _scanning = this.mutexWatcher.tryAcquire()
+					await this.scan(options)
+				})
+				.dispose()
 		})
-		this.watch()
+		this.watch(this.aborter.signal)
 	}
 
 	private aborter = new AbortController()
@@ -150,37 +158,38 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			setScanning(false)
 			output.info("Stopped watching in " + ms(Date.now() - start))
 		}
-		signal?.addEventListener("abort", abort, { once: true })
-		if (signal)
+		if (signal) {
+			output.info("+ watch signal dispose")
+			signal.addEventListener("abort", abort, { once: true })
 			this.subscriptions.push({
 				dispose(): void {
+					output.info("- watch signal dispose")
 					signal.removeEventListener("abort", abort)
 					abort()
 				},
 			})
-		this.subscriptions.push(
-			watcher.onDidChange(
-				this.didAny("changed", async (ctx, f) => {
-					const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
-					await matcherContextRemovePath(ctx, opts, f.entry)
-					await matcherContextAddPath(ctx, opts, f.entry)
-					// this.ctx = await vign.scan(opts)
-				}),
-			),
-			watcher.onDidChange(
-				this.didAny("created", async (ctx, f) => {
-					const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
-					await matcherContextAddPath(ctx, opts, f.entry)
-					// this.ctx = await vign.scan(opts)
-				}),
-			),
-			watcher.onDidChange(
-				this.didAny("deleted", async (ctx, f) => {
-					const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
-					await matcherContextRemovePath(ctx, opts, f.entry)
-					// this.ctx = await vign.scan(opts)
-				}),
-			),
+		}
+		watcher.onDidChange(
+			this.didAny("changed", async (ctx, f) => {
+				const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
+				await matcherContextRemovePath(ctx, opts, f.entry)
+				await matcherContextAddPath(ctx, opts, f.entry)
+				// this.ctx = await vign.scan(opts)
+			}),
+		)
+		watcher.onDidChange(
+			this.didAny("created", async (ctx, f) => {
+				const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
+				await matcherContextAddPath(ctx, opts, f.entry)
+				// this.ctx = await vign.scan(opts)
+			}),
+		)
+		watcher.onDidChange(
+			this.didAny("deleted", async (ctx, f) => {
+				const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
+				await matcherContextRemovePath(ctx, opts, f.entry)
+				// this.ctx = await vign.scan(opts)
+			}),
 		)
 	}
 

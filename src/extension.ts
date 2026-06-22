@@ -10,8 +10,7 @@ import { output } from "./output.js"
 
 export async function activate(context: vscode.ExtensionContext) {
 	const start = Date.now()
-	output.info("+ activate")
-	output.info("Started")
+	output.info("Starting extension...")
 	setReady(true)
 	setScanning(true)
 	context.subscriptions.push(output)
@@ -23,7 +22,5 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand("viewIgnored.explain", explain),
 	)
 	await decorationProvider.init()
-	output.info("- activate in " + ms(Date.now() - start))
+	output.info("Started extension in " + ms(Date.now() - start))
 }
-
-export function deactivate() {}

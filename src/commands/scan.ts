@@ -3,29 +3,12 @@ import * as vscode from "vscode"
 
 import { decorationProvider } from "../decorationProvider.js"
 import { output } from "../output.js"
-import pickValue from "../pickValue.js"
-import {
-	nameFromTargetMaker,
-	relatedTargets,
-	targetMakerFromName,
-	TargetName,
-} from "../targetName.js"
+import { pickValue, pickTarget } from "../pickValue.js"
+import { targetMakerFromName, TargetName } from "../targetName.js"
 
 export default async function (): Promise<void> {
 	const title = "Scan for ignored files"
-	const related = (await relatedTargets()).map(nameFromTargetMaker)
-	const targetName = await pickValue(title, "Select the target", [
-		{ label: "None", alwaysShow: true },
-		...related.map<vscode.QuickPickItem>((name) => ({
-			label: name,
-			iconPath:
-				name === "VSCE"
-					? new vscode.ThemeIcon("extensions")
-					: name === "Yarn classic"
-						? new vscode.ThemeIcon("view-ignored-yarn")
-						: new vscode.ThemeIcon("view-ignored-" + name.toLowerCase()),
-		})),
-	])
+	const targetName = await pickTarget(title, true)
 	if (!targetName) return
 	if (targetName === "None") {
 		await vscode.commands.executeCommand("viewIgnored.scan.clear")

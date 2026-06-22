@@ -8,13 +8,8 @@ import { collectCauses } from "../collectCauses.js"
 import { explain } from "../explain.js"
 import { output } from "../output.js"
 import { parseUri } from "../parseUri.js"
-import pickValue from "../pickValue.js"
-import {
-	nameFromTargetMaker,
-	relatedTargets,
-	targetMakerFromName,
-	TargetName,
-} from "../targetName.js"
+import { pickTarget } from "../pickValue.js"
+import { targetMakerFromName, TargetName } from "../targetName.js"
 
 export default async function (entryUri: vscode.Uri): Promise<void> {
 	if (!(entryUri instanceof vscode.Uri)) return
@@ -24,8 +19,7 @@ export default async function (entryUri: vscode.Uri): Promise<void> {
 	const title = "Explain ignoring for " + entry
 	const aborter = new AbortController()
 	const unixCwd = cwd.replace(/\w:/, "")
-	const related = (await relatedTargets(aborter.signal)).map(nameFromTargetMaker)
-	const targetName = await pickValue(title, "Select the target", related)
+	const targetName = await pickTarget(title, false)
 	if (!targetName) return
 	const targetMaker = targetMakerFromName(targetName as TargetName)
 	const target = targetMaker()

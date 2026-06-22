@@ -1,6 +1,8 @@
 import * as vscode from "vscode"
 
-export default function pickValue(
+import { nameFromTargetMaker, relatedTargets } from "./targetName.js"
+
+export function pickValue(
 	title: string,
 	placeholder: string,
 	items: Array<vscode.QuickPickItem | string>,
@@ -25,4 +27,21 @@ export default function pickValue(
 
 		quickPick.show()
 	})
+}
+
+export async function pickTarget(title: string, none = false): Promise<string | undefined> {
+	const related = (await relatedTargets()).map(nameFromTargetMaker)
+	const targetName = await pickValue(title, "Select the target", [
+		...(none ? [] : [{ label: "None", alwaysShow: true }]),
+		...related.map<vscode.QuickPickItem>((name) => ({
+			label: name,
+			iconPath:
+				name === "VSCE"
+					? new vscode.ThemeIcon("extensions")
+					: name === "Yarn classic"
+						? new vscode.ThemeIcon("view-ignored-yarn")
+						: new vscode.ThemeIcon("view-ignored-" + name.toLowerCase()),
+		})),
+	])
+	return targetName
 }

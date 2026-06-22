@@ -72,13 +72,11 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		if (!vscode.workspace.workspaceFolders) return
 		for (const directory of vscode.workspace.workspaceFolders) {
 			const cwd = directory.uri.fsPath.replaceAll("\\", "/")
-			output.info("cwd: '" + cwd + "'")
 			const ctx = await vign.scan({ ...this.options, cwd })
 			this.contexts.set(cwd, ctx)
 			for (const [file, _match] of ctx.paths) {
 				if (file.endsWith("/")) continue
 				const uri = pathToUri(cwd, file)
-				output.info("uri.fsPath added: '" + uri.fsPath + "'")
 				this.add(uri)
 			}
 		}
@@ -199,17 +197,9 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	provideFileDecoration(uri: vscode.Uri): vscode.ProviderResult<vscode.FileDecoration> {
 		const parsed = parseUri(uri)
 		if (!parsed) return
-		output.info(
-			"decoration requested, cwd: '" + parsed.cwd + "', available: ",
-			...this.contexts.keys(),
-		)
 		const ctx = this.contexts.get(parsed.cwd)
 		if (!ctx || this.decorations.size < 0) return
 		const match = ctx?.paths.get(parsed.entry)
-		output.info(
-			"decoration requested, entry: '" + parsed.entry + "', available: ",
-			...ctx?.paths.keys(),
-		)
 		const tooltip = match
 			? explain(this.options?.invert ?? false, match, this.targetMaker)
 			: "Internal error, couldn't find " + parsed.entry

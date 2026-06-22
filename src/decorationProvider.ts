@@ -22,7 +22,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	private subscriptions: vscode.Disposable[] = []
 	private mutexWorspaceFolderChange = new Semaphore(1)
 	private mutexWatcher = new Semaphore(1)
-	private readonly onDidChange = new vscode.EventEmitter<vscode.Uri>()
+	private readonly onDidChange = new vscode.EventEmitter<vscode.Uri | vscode.Uri[] | undefined>()
 	readonly onDidChangeFileDecorations = this.onDidChange.event.bind(this.onDidChange)
 
 	private decorations = new Map<string, DecorationKind>()
@@ -237,12 +237,8 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		const start = Date.now()
 		output.info("Clearing...")
 		await this.deinit()
-		const map = this.decorations
-		this.decorations = new Map<string, DecorationKind>()
-		for (const [fsPath] of map) {
-			const uri = vscode.Uri.file(fsPath)
-			this.del(uri)
-		}
+		this.decorations.clear()
+		this.onDidChange.fire(undefined)
 		output.info("Cleared in " + ms(Date.now() - start))
 	}
 

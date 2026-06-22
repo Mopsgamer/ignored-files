@@ -98,7 +98,7 @@
 				"command": "viewIgnored.scan.clear",
 				"category": "View ignored",
 				"enablement": "viewIgnored.isReady && viewIgnored.isScanning",
-				"icon": "$(clear-all)"
+				"icon": "$(search-stop)"
 			},
 			{
 				"title": "Scan decorations",

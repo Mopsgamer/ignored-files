@@ -1,3 +1,4 @@
+import * as targets from "view-ignored/targets"
 import * as vscode from "vscode"
 
 import { nameFromTargetMaker, relatedTargets } from "./targetName.js"
@@ -32,7 +33,7 @@ export function pickValue(
 export async function pickTarget(title: string, none = false): Promise<string | undefined> {
 	const related = (await relatedTargets()).map(nameFromTargetMaker)
 	const targetName = await pickValue(title, "Select the target", [
-		...(none ? [] : [{ label: "None", alwaysShow: true }]),
+		...(none ? [{ label: "None", alwaysShow: true }] : []),
 		...related.map<vscode.QuickPickItem>((name) => ({
 			label: name,
 			iconPath:

@@ -1,3 +1,4 @@
+import ms from "ms"
 import * as vscode from "vscode"
 
 import clear from "./commands/clear.js"
@@ -8,6 +9,8 @@ import { decorationProvider } from "./decorationProvider.js"
 import { output } from "./output.js"
 
 export async function activate(context: vscode.ExtensionContext) {
+	const start = Date.now()
+	output.info("+ activate")
 	output.info("Started")
 	setReady(true)
 	setScanning(true)
@@ -20,6 +23,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand("viewIgnored.explain", explain),
 	)
 	await decorationProvider.init()
+	output.info("- activate in " + ms(Date.now() - start))
 }
 
 export function deactivate() {}

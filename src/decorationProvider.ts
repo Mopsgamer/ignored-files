@@ -34,24 +34,32 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	async init(
 		options?: Partial<Omit<vign.ScanOptions, "cwd" | "target">> & { target?: () => Target },
 	): Promise<void> {
+		const start = Date.now()
+		output.info("+ init")
 		setScanning(true)
 		await this.scan(options)
 
 		this.aborter.signal.addEventListener("abort", () => {
+			output.info("+ init aborter signal abort")
 			vscode.workspace
 				.onDidChangeWorkspaceFolders(async () => {
+					const start = Date.now()
+					output.info("+ onDidChangeWorkspaceFolders")
 					setScanning(true)
 					using folders = this.mutexWorspaceFolderChange.tryAcquire()
 					if (!folders) {
 						setScanning(false)
+						output.info("- onDidChangeWorkspaceFolders in " + ms(Date.now() - start))
 						return
 					}
 					using _scanning = this.mutexWatcher.tryAcquire()
 					await this.scan(options)
+					output.info("- onDidChangeWorkspaceFolders in " + ms(Date.now() - start))
 				})
 				.dispose()
 		})
 		this.watch(this.aborter.signal)
+		output.info("- init in " + ms(Date.now() - start))
 	}
 
 	private aborter = new AbortController()
@@ -70,6 +78,8 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	private async scan(
 		options?: Partial<Omit<vign.ScanOptions, "cwd" | "target">> & { target?: () => Target },
 	): Promise<void> {
+		const start = Date.now()
+		output.info("+ scan")
 		this.targetMaker = options?.target || makeGit
 		assignOpt(this.options, options)
 		this.options.target = this.targetMaker()
@@ -77,7 +87,10 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		setScanning(true)
 		using _ = { [Symbol.dispose]: () => setScanning(false) }
 		await this.clear()
-		if (!vscode.workspace.workspaceFolders) return
+		if (!vscode.workspace.workspaceFolders) {
+			output.info("- scan in " + ms(Date.now() - start))
+			return
+		}
 		for (const directory of vscode.workspace.workspaceFolders) {
 			const cwd = directory.uri.fsPath.replaceAll("\\", "/")
 			const ctx = await vign.scan({ ...this.options, cwd })
@@ -88,6 +101,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 				this.add(uri)
 			}
 		}
+		output.info("- scan in " + ms(Date.now() - start))
 	}
 
 	/**
@@ -112,8 +126,13 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		f: { cwd: string; entry: string },
 		cb: (ctx: MatcherContext, f: { cwd: string; entry: string }) => Promise<void>,
 	): Promise<void> {
+		const start = Date.now()
+		output.info("+ watchPatch " + eventName)
 		const ctx = this.contexts.get(f.cwd)
-		if (!ctx) return
+		if (!ctx) {
+			output.info("- watchPatch " + eventName + " in " + ms(Date.now() - start))
+			return
+		}
 		const before = new Set(ctx.paths.keys())
 		await cb(ctx, f)
 		const after = new Set(ctx.paths.keys())
@@ -132,6 +151,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			const uri = pathToUri(f.cwd, element)
 			this.del(uri)
 		}
+		output.info("- watchPatch " + eventName + " in " + ms(Date.now() - start))
 	}
 
 	private didAny(
@@ -139,23 +159,32 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		cb: (ctx: MatcherContext, f: { cwd: string; entry: string }) => Promise<void>,
 	): (uri: vscode.Uri) => Promise<void> {
 		return async (uri: vscode.Uri) => {
+			const start = Date.now()
+			output.info("+ didAny " + eventName)
 			const f = parseUri(uri)
-			if (!f) return
+			if (!f) {
+				output.info("- didAny " + eventName + " in " + ms(Date.now() - start))
+				return
+			}
 			using _mutex = await this.mutexWatcher.acquire()
 			setScanning(true)
 			using _notScanning = { [Symbol.dispose]: () => setScanning(false) }
 			await this.watchPatch(eventName, f, cb)
+			output.info("- didAny " + eventName + " in " + ms(Date.now() - start))
 		}
 	}
 
 	private watch(signal: AbortSignal | null = null): void {
+		output.info("+ watch")
 		const start = Date.now()
 		const watcher = vscode.workspace.createFileSystemWatcher("**/*", false, false, false)
 		output.info("Started watching in " + ms(Date.now() - start))
 		const abort = async () => {
 			const start = Date.now()
+			output.info("+ watch abort")
 			watcher.dispose()
 			setScanning(false)
+			output.info("- watch abort in " + ms(Date.now() - start))
 			output.info("Stopped watching in " + ms(Date.now() - start))
 		}
 		if (signal) {
@@ -194,6 +223,8 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	}
 
 	async clear(): Promise<void> {
+		const start = Date.now()
+		output.info("+ clear")
 		await this.deinit()
 		const map = this.decorations
 		this.decorations = new Map<string, DecorationKind>()
@@ -201,6 +232,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			const uri = vscode.Uri.file(fsPath)
 			this.del(uri)
 		}
+		output.info("- clear in " + ms(Date.now() - start))
 	}
 
 	provideFileDecoration(uri: vscode.Uri): vscode.ProviderResult<vscode.FileDecoration> {
@@ -232,22 +264,28 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	 * Use `init` to restart them again.
 	 */
 	async deinit(): Promise<void> {
+		const start = Date.now()
+		output.info("+ deinit")
 		using _mutex = await this.mutexWatcher.acquire()
 		try {
 			this.aborter.abort()
 			this.aborter = new AbortController()
 		} catch {}
+		output.info("- deinit in " + ms(Date.now() - start))
 	}
 
 	/**
 	 * Runs only on `extension.deactivate` event. Never use it.
 	 */
 	dispose() {
+		const start = Date.now()
+		output.info("+ dispose")
 		for (const sub of this.subscriptions) sub.dispose()
 		this.clear()
 		try {
 			this.aborter.abort()
 		} catch {}
+		output.info("- dispose in " + ms(Date.now() - start))
 	}
 }
 

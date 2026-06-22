@@ -243,6 +243,8 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	}
 
 	provideFileDecoration(uri: vscode.Uri): vscode.ProviderResult<vscode.FileDecoration> {
+		const state = this.decorations.get(uri.fsPath)
+		if (!state) return
 		const parsed = parseUri(uri)
 		if (!parsed) return
 		const ctx = this.contexts.get(parsed.cwd)

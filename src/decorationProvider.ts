@@ -9,12 +9,12 @@ import {
 import { makeGit, Target } from "view-ignored/targets"
 import * as vscode from "vscode"
 
-import { setScanning } from "./context.js"
+import { setScanning, setTarget } from "./context.js"
 import { explain } from "./explain.js"
 import { output } from "./output.js"
 import { parseUri, pathToUri } from "./parseUri.js"
 import { Semaphore } from "./semaphore.js"
-import { targetMakerFromName } from "./targetName.js"
+import { nameFromTargetMaker, targetMakerFromName } from "./targetName.js"
 
 export type DecorationKind = "ignored" | "included" | "unknown"
 
@@ -93,6 +93,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			},
 		}
 		this.targetMaker = options?.target || makeGit
+		setTarget(nameFromTargetMaker(this.targetMaker))
 		assignOpt(this.options, options)
 		this.options.target = this.targetMaker()
 

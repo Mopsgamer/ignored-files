@@ -189,47 +189,103 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		}
 	}
 
+	private watchQueue: {
+		eventName: string
+		uri: vscode.Uri
+		cb: (ctx: MatcherContext, f: { cwd: string; entry: string }) => Promise<void>
+	}[] = []
+	private watchDebounceTimer: NodeJS.Timeout | null = null
+
 	private watch(signal: AbortSignal): void {
 		const start = Date.now()
 		const watcher = vscode.workspace.createFileSystemWatcher("**/*", false, false, false)
 		output.info("Created watcher in " + ms(Date.now() - start))
+
+		const queueEvent = (
+			eventName: string,
+			cb: (ctx: MatcherContext, f: { cwd: string; entry: string }) => Promise<void>,
+		) => {
+			return (uri: vscode.Uri) => {
+				this.watchQueue.push({ eventName, uri, cb })
+
+				if (this.watchDebounceTimer) {
+					clearTimeout(this.watchDebounceTimer)
+				}
+
+				this.watchDebounceTimer = setTimeout(() => {
+					this.flushWatchQueue()
+				}, 50)
+			}
+		}
+
 		const watcherListeners = [
 			watcher.onDidChange(
-				this.didAny("changed", async (ctx, f) => {
+				queueEvent("changed", async (ctx, f) => {
 					const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
 					await matcherContextRemovePath(ctx, opts, f.entry)
 					await matcherContextAddPath(ctx, opts, f.entry)
-					// this.ctx = await vign.scan(opts)
 				}),
 			),
-			watcher.onDidChange(
-				this.didAny("created", async (ctx, f) => {
+			watcher.onDidCreate(
+				queueEvent("created", async (ctx, f) => {
 					const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
 					await matcherContextAddPath(ctx, opts, f.entry)
-					// this.ctx = await vign.scan(opts)
 				}),
 			),
-			watcher.onDidChange(
-				this.didAny("deleted", async (ctx, f) => {
+			watcher.onDidDelete(
+				queueEvent("deleted", async (ctx, f) => {
 					const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
 					await matcherContextRemovePath(ctx, opts, f.entry)
-					// this.ctx = await vign.scan(opts)
 				}),
 			),
 		]
+
 		output.info(
 			"Started " + watcherListeners.length + " watcher listeners in " + ms(Date.now() - start),
 		)
+
 		const abort = async () => {
 			output.info("Disposing watcher and listeners...")
 			const start = Date.now()
+			if (this.watchDebounceTimer) {
+				clearTimeout(this.watchDebounceTimer)
+			}
+			this.watchQueue = []
 			watcherListeners.forEach((l) => l.dispose())
 			watcher.dispose()
 			setScanning(false)
 			output.info("Disposed watcher in " + ms(Date.now() - start))
 		}
+
 		output.info("Watcher will be disposed when signal is aborted")
 		signal.addEventListener("abort", abort, { once: true })
+	}
+
+	private async flushWatchQueue(): Promise<void> {
+		if (this.watchQueue.length === 0) return
+
+		const batch = [...this.watchQueue]
+		this.watchQueue = []
+
+		const start = Date.now()
+		output.info(`Locked/Waiting processing batch of ${batch.length} file system events`)
+
+		using _mutex = await this.mutexWatcher.acquire()
+		setScanning(true)
+
+		using _notScanning = {
+			[Symbol.dispose]: () => {
+				setScanning(false)
+				output.info(`Unlocked/Updated batch of ${batch.length} events in ` + ms(Date.now() - start))
+			},
+		}
+
+		// Process each item in the batch sequentially under a single lock instance
+		for (const task of batch) {
+			const f = parseUri(task.uri)
+			if (!f) continue
+			await this.watchPatch(task.eventName, f, task.cb)
+		}
 	}
 
 	async clear(): Promise<void> {
@@ -275,6 +331,11 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	async deinit(): Promise<void> {
 		const start = Date.now()
 		output.info("Deinitializing...")
+		if (this.watchDebounceTimer) {
+			clearTimeout(this.watchDebounceTimer)
+			this.watchDebounceTimer = null
+		}
+		this.watchQueue = []
 		using _mutex = await this.mutexWatcher.acquire()
 		try {
 			this.aborter.abort()
@@ -289,6 +350,11 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	dispose() {
 		const start = Date.now()
 		output.info("Disposing...")
+		if (this.watchDebounceTimer) {
+			clearTimeout(this.watchDebounceTimer)
+			this.watchDebounceTimer = null
+		}
+		this.watchQueue = []
 		try {
 			this.aborter.abort()
 		} catch {}

@@ -27,8 +27,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 
 	private decorations = new Map<string, DecorationKind>()
 
-	// @ts-expect-error initialized by init
-	private ctx: MatcherContext
+	private contexts: Map<string, MatcherContext> = new Map()
 
 	constructor() {}
 
@@ -40,7 +39,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		vscode.workspace.onDidChangeWorkspaceFolders(async () => {
 			setScanning(true)
 			using folders = this.mutexWorspaceFolderChange.tryAcquire()
-			if (folders) return
+			if (!folders) return
 			using _scanning = this.mutexWatcher.tryAcquire()
 			await this.scan(options)
 		})
@@ -63,18 +62,23 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	private async scan(
 		options?: Partial<Omit<vign.ScanOptions, "cwd" | "target">> & { target?: () => Target },
 	): Promise<void> {
-		assignOpt(this.options, options)
 		this.targetMaker = options?.target || makeGit
+		assignOpt(this.options, options)
+		this.options.target = this.targetMaker()
+
 		setScanning(true)
 		using _ = { [Symbol.dispose]: () => setScanning(false) }
 		await this.clear()
 		if (!vscode.workspace.workspaceFolders) return
 		for (const directory of vscode.workspace.workspaceFolders) {
-			const cwd = directory.uri.fsPath
-			this.ctx = await vign.scan({ ...this.options, cwd })
-			for (const [file, _match] of this.ctx.paths) {
+			const cwd = directory.uri.fsPath.replaceAll("\\", "/")
+			output.info("cwd: '" + cwd + "'")
+			const ctx = await vign.scan({ ...this.options, cwd })
+			this.contexts.set(cwd, ctx)
+			for (const [file, _match] of ctx.paths) {
 				if (file.endsWith("/")) continue
 				const uri = pathToUri(cwd, file)
+				output.info("uri.fsPath added: '" + uri.fsPath + "'")
 				this.add(uri)
 			}
 		}
@@ -100,11 +104,13 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	private async watchPatch(
 		eventName: string,
 		f: { cwd: string; entry: string },
-		cb: (f: { cwd: string; entry: string }) => Promise<void>,
+		cb: (ctx: MatcherContext, f: { cwd: string; entry: string }) => Promise<void>,
 	): Promise<void> {
-		const before = new Set(this.ctx.paths.keys())
-		await cb(f)
-		const after = new Set(this.ctx.paths.keys())
+		const ctx = this.contexts.get(f.cwd)
+		if (!ctx) return
+		const before = new Set(ctx.paths.keys())
+		await cb(ctx, f)
+		const after = new Set(ctx.paths.keys())
 		const added = Array.from(after.difference(before)),
 			removed = Array.from(before.difference(after))
 		if (added.length + removed.length > 0) output.info("File " + eventName + ":", f.entry)
@@ -124,7 +130,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 
 	private didAny(
 		eventName: string,
-		cb: (f: { cwd: string; entry: string }) => Promise<void>,
+		cb: (ctx: MatcherContext, f: { cwd: string; entry: string }) => Promise<void>,
 	): (uri: vscode.Uri) => Promise<void> {
 		return async (uri: vscode.Uri) => {
 			const f = parseUri(uri)
@@ -156,24 +162,24 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			})
 		this.subscriptions.push(
 			watcher.onDidChange(
-				this.didAny("changed", async (f) => {
+				this.didAny("changed", async (ctx, f) => {
 					const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
-					await matcherContextRemovePath(this.ctx, opts, f.entry)
-					await matcherContextAddPath(this.ctx, opts, f.entry)
+					await matcherContextRemovePath(ctx, opts, f.entry)
+					await matcherContextAddPath(ctx, opts, f.entry)
 					// this.ctx = await vign.scan(opts)
 				}),
 			),
 			watcher.onDidChange(
-				this.didAny("created", async (f) => {
+				this.didAny("created", async (ctx, f) => {
 					const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
-					await matcherContextAddPath(this.ctx, opts, f.entry)
+					await matcherContextAddPath(ctx, opts, f.entry)
 					// this.ctx = await vign.scan(opts)
 				}),
 			),
 			watcher.onDidChange(
-				this.didAny("deleted", async (f) => {
+				this.didAny("deleted", async (ctx, f) => {
 					const opts: Required<vign.ScanOptions> = { cwd: f.cwd, ...this.options, signal }
-					await matcherContextRemovePath(this.ctx, opts, f.entry)
+					await matcherContextRemovePath(ctx, opts, f.entry)
 					// this.ctx = await vign.scan(opts)
 				}),
 			),
@@ -191,10 +197,19 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	}
 
 	provideFileDecoration(uri: vscode.Uri): vscode.ProviderResult<vscode.FileDecoration> {
-		if (!this.ctx || this.decorations.size < 0) return
 		const parsed = parseUri(uri)
 		if (!parsed) return
-		const match = this.ctx?.paths.get(parsed.entry)
+		output.info(
+			"decoration requested, cwd: '" + parsed.cwd + "', available: ",
+			...this.contexts.keys(),
+		)
+		const ctx = this.contexts.get(parsed.cwd)
+		if (!ctx || this.decorations.size < 0) return
+		const match = ctx?.paths.get(parsed.entry)
+		output.info(
+			"decoration requested, entry: '" + parsed.entry + "', available: ",
+			...ctx?.paths.keys(),
+		)
 		const tooltip = match
 			? explain(this.options?.invert ?? false, match, this.targetMaker)
 			: "Internal error, couldn't find " + parsed.entry

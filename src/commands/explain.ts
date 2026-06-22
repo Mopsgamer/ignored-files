@@ -1,6 +1,6 @@
 import ms from "ms"
-import * as fs from "node:fs"
-import { dirname } from "node:path"
+import * as nodefs from "node:fs"
+import { dirname, join } from "node:path"
 import { resolveSources, RuleMatch } from "view-ignored/patterns"
 import * as vscode from "vscode"
 
@@ -23,6 +23,7 @@ export default async function (entryUri: vscode.Uri): Promise<void> {
 	if (!targetName) return
 	const targetMaker = targetMakerFromName(targetName as TargetName)
 	const target = targetMaker()
+	const fs = { readFile: nodefs.readFile, readdir: nodefs.readdir }
 	output.info("Explaining '" + entry + "'. targetName is " + targetName)
 	output.info("Scanning to explain...")
 	const start = Date.now()
@@ -39,12 +40,12 @@ export default async function (entryUri: vscode.Uri): Promise<void> {
 			}),
 		)
 		const dir = dirname(entry)
-		const entries = await fs.promises.readdir(dir, { withFileTypes: true })
+		const entries = await nodefs.promises.readdir(join(cwd, dir), { withFileTypes: true })
 		match = await new Promise<RuleMatch>((r, j) => {
 			resolveSources(
 				{
 					cwd: unixCwd,
-					dir: dirname(entry),
+					dir,
 					external: new Map(),
 					fs,
 					signal: aborter.signal,
@@ -64,7 +65,7 @@ export default async function (entryUri: vscode.Uri): Promise<void> {
 							signal: aborter.signal,
 							target,
 							lowerEntry: entry.toLocaleLowerCase(),
-							parentPath: dirname(entry),
+							parentPath: dir,
 							resource,
 						},
 						(err, match) => {

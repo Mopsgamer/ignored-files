@@ -1,4 +1,3 @@
-import * as targets from "view-ignored/targets"
 import * as vscode from "vscode"
 
 import { nameFromTargetMaker, relatedTargets } from "./targetName.js"

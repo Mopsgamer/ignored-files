@@ -23,7 +23,7 @@ export default async function (entryUri: vscode.Uri): Promise<void> {
 	if (!targetName) return
 	const targetMaker = targetMakerFromName(targetName as TargetName)
 	const target = targetMaker()
-	const fs = { readFile: nodefs.readFile, readdir: nodefs.readdir }
+	const fs = { readFile: nodefs.readFile, readdir: nodefs.readdir, stat: nodefs.stat }
 	output.info("Explaining '" + entry + "'. targetName is " + targetName)
 	output.info("Scanning to explain...")
 	const start = Date.now()

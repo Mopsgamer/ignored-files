@@ -5,14 +5,14 @@ import { output } from "./output.js"
 import { nameFromTargetMaker, targetMakerFromName, TargetName } from "./targetName.js"
 
 export function explain(
-	inverted: boolean,
+	inverted: boolean | 2,
 	match: RuleMatch,
 	t: TargetName | (() => Target),
 ): string {
 	const targetName = typeof t === "string" ? t : nameFromTargetMaker(t)
 	const targetMaker = typeof t === "string" ? targetMakerFromName(t) : t
 	const target = targetMaker()
-	let reason = inverted ? "Ignored" : "Included"
+	let reason = match.ignored ? "Ignored" : "Included"
 	reason += " by " + targetName
 	const potential =
 		target.extractors.length === 0

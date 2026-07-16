@@ -76,6 +76,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		depth: Infinity,
 		fs,
 		signal: null,
+		dirs: false,
 		within: ".",
 	}
 	private targetMaker: () => Target = makeGit

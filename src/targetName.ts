@@ -2,12 +2,20 @@ import * as fs from "fs"
 import * as targets from "view-ignored/targets"
 import * as vscode from "vscode"
 
-export type TargetName = "NPM" | "Yarn" | "Yarn classic" | "VSCE" | "Git" | "Bun" | "Deno" | "JSR"
+export type TargetName =
+	| "NPM"
+	| "Yarn v2+, Modern"
+	| "Yarn v1, Classic"
+	| "VSCE"
+	| "Git"
+	| "Bun"
+	| "Deno"
+	| "JSR"
 
 export const targetNames: TargetName[] = [
 	"NPM",
-	"Yarn",
-	"Yarn classic",
+	"Yarn v2+, Modern",
+	"Yarn v1, Classic",
 	"VSCE",
 	"Git",
 	"Bun",
@@ -21,9 +29,9 @@ export function targetMakerFromName(name: TargetName): () => targets.Target {
 	switch (name) {
 		case "NPM":
 			return targets.makeNPM
-		case "Yarn":
+		case "Yarn v2+, Modern":
 			return targets.makeYarn
-		case "Yarn classic":
+		case "Yarn v1, Classic":
 			return targets.makeYarnClassic
 		case "VSCE":
 			return targets.makeVSCE
@@ -43,9 +51,9 @@ export function nameFromTargetMaker(targetMaker: () => targets.Target): TargetNa
 		case targets.makeNPM:
 			return "NPM"
 		case targets.makeYarn:
-			return "Yarn"
+			return "Yarn v2+, Modern"
 		case targets.makeYarnClassic:
-			return "Yarn classic"
+			return "Yarn v1, Classic"
 		case targets.makeVSCE:
 			return "VSCE"
 		case targets.makeGit:

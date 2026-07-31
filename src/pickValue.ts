@@ -59,7 +59,7 @@ export async function pickTarget(
 				iconPath:
 					name === "VSCE"
 						? new vscode.ThemeIcon("extensions")
-						: name === "Yarn v1, Classic"
+						: name.startsWith("Yarn")
 							? new vscode.ThemeIcon("view-ignored-yarn")
 							: new vscode.ThemeIcon("view-ignored-" + name.toLowerCase()),
 			})),

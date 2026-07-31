@@ -21,31 +21,31 @@
 		"compile": "npm run check-types && npm run lint && npm run fmt && node esbuild.js",
 		"watch": "npm-run-all -p watch:*",
 		"watch:esbuild": "node esbuild.js --watch",
-		"watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+		"watch:tsc": "bun --bun node_modules/typescript/bin/tsc --noEmit --watch --project tsconfig.json",
 		"package": "npm run check-types && npm run lint && node esbuild.js --production",
 		"vsix": "vsce package",
-		"check-types": "tsgo --noEmit",
+		"check-types": "tsc --noEmit",
 		"check": "bun check-types",
 		"lint": "oxlint",
 		"fmt": "oxfmt"
 	},
 	"dependencies": {
 		"ms": "^2.1.3",
-		"simple-icons": "^16.24.0",
+		"simple-icons": "^16.27.1",
 		"view-ignored": "^0.11.1"
 	},
 	"devDependencies": {
 		"@types/ms": "latest",
 		"@types/node": "^20.19.43",
 		"@types/vscode": "^1.125.0",
-		"@typescript/native-preview": "latest",
 		"@vscode/test-electron": "^2.5.2",
 		"@vscode/vsce": "^3.9.2",
 		"esbuild": "latest",
 		"npm-run-all": "latest",
 		"oxfmt": "latest",
 		"oxlint": "latest",
-		"typescript": "^6.0.3"
+		"typescript": "^6.0.3",
+		"typescript7": "npm:typescript@^7.0.2"
 	},
 	"contributes": {
 		"icons": {

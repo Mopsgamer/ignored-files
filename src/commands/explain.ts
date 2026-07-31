@@ -1,6 +1,6 @@
 import ms from "ms"
 import * as nodefs from "node:fs"
-import { dirname, join } from "node:path"
+import { dirname, join, basename } from "node:path"
 import { resolveSources, RuleMatch } from "view-ignored/patterns"
 import * as vscode from "vscode"
 
@@ -41,6 +41,8 @@ export default async function (entryUri: vscode.Uri): Promise<void> {
 		)
 		const dir = dirname(entry)
 		const entries = await nodefs.promises.readdir(join(cwd, dir), { withFileTypes: true })
+		const entryBasename = basename(entry)
+		const dirent = entries.find((e) => e.name === entryBasename)!
 		match = await new Promise<RuleMatch>((r, j) => {
 			resolveSources(
 				{
@@ -61,6 +63,7 @@ export default async function (entryUri: vscode.Uri): Promise<void> {
 						{
 							cwd: unixCwd,
 							entry,
+							dirent,
 							fs,
 							signal: aborter.signal,
 							target,

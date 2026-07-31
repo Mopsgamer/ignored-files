@@ -29,11 +29,34 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 
 	private contexts: Map<string, MatcherContext> = new Map()
 
+	private aborter = new AbortController()
+	private options: Required<Omit<vign.ScanOptions, "cwd">> = {
+		target: targetMakerFromName("Git")(),
+		skipDepth: true,
+		skipInternal: true,
+		invert: false,
+		depth: Infinity,
+		fs,
+		signal: null,
+		dirs: false,
+		within: ".",
+	}
+	private targetMaker: () => Target = makeGit
+
+	private watchQueue: {
+		eventName: string
+		uri: vscode.Uri
+		cb: (ctx: MatcherContext, f: { cwd: string; entry: string }) => Promise<void>
+	}[] = []
+	private watchDebounceTimer: NodeJS.Timeout | null = null
+
 	constructor() {}
 
 	async init(
 		options?: Partial<Omit<vign.ScanOptions, "cwd" | "target">> & { target?: () => Target },
 	): Promise<void> {
+		await this.deinit()
+
 		const start = Date.now()
 		output.info("Initializing decoration provider...")
 		setScanning(true)
@@ -59,27 +82,19 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			}
 			await this.scan(options)
 		})
-		this.aborter.signal.addEventListener("abort", () => {
-			output.info("Removing workspace folders listener...")
-			l.dispose()
-		})
+
+		this.aborter.signal.addEventListener(
+			"abort",
+			() => {
+				output.info("Removing workspace folders listener...")
+				l.dispose()
+			},
+			{ once: true },
+		)
+
 		this.watch(this.aborter.signal)
 		output.info("Initialized decoration provider in " + ms(Date.now() - start))
 	}
-
-	private aborter = new AbortController()
-	private options: Required<Omit<vign.ScanOptions, "cwd">> = {
-		target: targetMakerFromName("Git")(),
-		skipDepth: true,
-		skipInternal: true,
-		invert: false,
-		depth: Infinity,
-		fs,
-		signal: null,
-		dirs: false,
-		within: ".",
-	}
-	private targetMaker: () => Target = makeGit
 
 	private async scan(
 		options?: Partial<Omit<vign.ScanOptions, "cwd" | "target">> & { target?: () => Target },
@@ -98,7 +113,10 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		assignOpt(this.options, options)
 		this.options.target = this.targetMaker()
 
-		await this.clear()
+		this.decorations.clear()
+		this.contexts.clear()
+		this.onDidChange.fire(undefined)
+
 		if (!vscode.workspace.workspaceFolders) return
 		for (const directory of vscode.workspace.workspaceFolders) {
 			const cwd = directory.uri.fsPath.replaceAll("\\", "/")
@@ -112,18 +130,13 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		}
 	}
 
-	/**
-	 * This function recalculates decoration.
-	 */
 	add(uri: vscode.Uri): void {
 		const ignored = this.options.invert
 		const decoration = ignored ? "ignored" : "included"
 		this.decorations.set(uri.fsPath, decoration)
 		this.onDidChange.fire(uri)
 	}
-	/**
-	 * This function recalculates decoration.
-	 */
+
 	del(uri: vscode.Uri): void {
 		this.decorations.delete(uri.fsPath)
 		this.onDidChange.fire(uri)
@@ -161,43 +174,6 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		}
 	}
 
-	private didAny(
-		eventName: string,
-		cb: (ctx: MatcherContext, f: { cwd: string; entry: string }) => Promise<void>,
-	): (uri: vscode.Uri) => Promise<void> {
-		return async (uri: vscode.Uri) => {
-			const start = Date.now()
-			const f = parseUri(uri)
-			if (!f) {
-				return
-			}
-			output.info("Locked/Waiting didAny " + eventName + " '" + f.entry + "'")
-			using _mutex = await this.mutexWatcher.acquire()
-			setScanning(true)
-			using _notScanning = {
-				[Symbol.dispose]: () => {
-					setScanning(false)
-					output.info(
-						"Unlocked/Updated didAny " +
-							eventName +
-							" '" +
-							f.entry +
-							"' in " +
-							ms(Date.now() - start),
-					)
-				},
-			}
-			await this.watchPatch(eventName, f, cb)
-		}
-	}
-
-	private watchQueue: {
-		eventName: string
-		uri: vscode.Uri
-		cb: (ctx: MatcherContext, f: { cwd: string; entry: string }) => Promise<void>
-	}[] = []
-	private watchDebounceTimer: NodeJS.Timeout | null = null
-
 	private watch(signal: AbortSignal): void {
 		const start = Date.now()
 		const watcher = vscode.workspace.createFileSystemWatcher("**/*", false, false, false)
@@ -208,6 +184,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			cb: (ctx: MatcherContext, f: { cwd: string; entry: string }) => Promise<void>,
 		) => {
 			return (uri: vscode.Uri) => {
+				if (signal.aborted) return
 				this.watchQueue.push({ eventName, uri, cb })
 
 				if (this.watchDebounceTimer) {
@@ -246,11 +223,12 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			"Started " + watcherListeners.length + " watcher listeners in " + ms(Date.now() - start),
 		)
 
-		const abort = async () => {
+		const abort = () => {
 			output.info("Disposing watcher and listeners...")
 			const start = Date.now()
 			if (this.watchDebounceTimer) {
 				clearTimeout(this.watchDebounceTimer)
+				this.watchDebounceTimer = null
 			}
 			this.watchQueue = []
 			watcherListeners.forEach((l) => l.dispose())
@@ -264,7 +242,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	}
 
 	private async flushWatchQueue(): Promise<void> {
-		if (this.watchQueue.length === 0) return
+		if (this.watchQueue.length === 0 || this.aborter.signal.aborted) return
 
 		const batch = [...this.watchQueue]
 		this.watchQueue = []
@@ -282,8 +260,8 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			},
 		}
 
-		// Process each item in the batch sequentially under a single lock instance
 		for (const task of batch) {
+			if (this.aborter.signal.aborted) break
 			const f = parseUri(task.uri)
 			if (!f) continue
 			await this.watchPatch(task.eventName, f, task.cb)
@@ -294,8 +272,8 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		if (this.decorations.size === 0) return
 		const start = Date.now()
 		output.info("Clearing...")
-		await this.deinit()
 		this.decorations.clear()
+		this.contexts.clear()
 		this.onDidChange.fire(undefined)
 		output.info("Cleared in " + ms(Date.now() - start))
 	}
@@ -306,30 +284,23 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		const parsed = parseUri(uri)
 		if (!parsed) return
 		const ctx = this.contexts.get(parsed.cwd)
-		if (!ctx || this.decorations.size < 0) return
-		const match = ctx?.paths.get(parsed.entry)
+		if (!ctx) return
+		const match = ctx.paths.get(parsed.entry)
 		const tooltip = match
 			? explain(this.options?.invert ?? false, match, this.targetMaker)
 			: "Internal error, couldn't find " + parsed.entry
 		const propagate = true
-		// let color: vscode.ThemeColor
 		let badge: string
-		switch (this.decorations.get(uri.fsPath)) {
+		switch (state) {
 			case "ignored":
 				badge = "-"
-				// color = new vscode.ThemeColor("gitDecoration.ignoredResourceForeground")
 				return { badge, tooltip, propagate }
 			case "included":
 				badge = "+"
-				// color = new vscode.ThemeColor("gitDecoration.submoduleResourceForeground")
 				return { badge, tooltip, propagate }
 		}
 	}
 
-	/**
-	 * Disposes current scanning `scan` and `watch` operations.
-	 * Use `init` to restart them again.
-	 */
 	async deinit(): Promise<void> {
 		const start = Date.now()
 		output.info("Deinitializing...")
@@ -339,16 +310,12 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		}
 		this.watchQueue = []
 		using _mutex = await this.mutexWatcher.acquire()
-		try {
-			this.aborter.abort()
-			this.aborter = new AbortController()
-		} catch {}
+		if (!this.aborter.signal.aborted) this.aborter.abort()
+
+		this.aborter = new AbortController()
 		output.info("Deinitialized in " + ms(Date.now() - start))
 	}
 
-	/**
-	 * Runs only on `extension.deactivate` event. Never use it.
-	 */
 	dispose() {
 		const start = Date.now()
 		output.info("Disposing...")
@@ -357,11 +324,10 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			this.watchDebounceTimer = null
 		}
 		this.watchQueue = []
-		try {
-			this.aborter.abort()
-		} catch {}
+		if (!this.aborter.signal.aborted) this.aborter.abort()
 		for (const sub of this.subscriptions) sub.dispose()
 		this.clear()
+		this.onDidChange.dispose()
 		output.info("Disposed in " + ms(Date.now() - start))
 	}
 }

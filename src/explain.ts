@@ -4,11 +4,7 @@ import { Target } from "view-ignored/targets"
 import { output } from "./output.js"
 import { nameFromTargetMaker, targetMakerFromName, TargetName } from "./targetName.js"
 
-export function explain(
-	inverted: boolean | 2,
-	match: RuleMatch,
-	t: TargetName | (() => Target),
-): string {
+export function explain(match: RuleMatch, t: TargetName | (() => Target)): string {
 	const targetName = typeof t === "string" ? t : nameFromTargetMaker(t)
 	const targetMaker = typeof t === "string" ? targetMakerFromName(t) : t
 	const target = targetMaker()
@@ -34,8 +30,17 @@ export function explain(
 			reason += ` because no sources found; ${potential}`
 			break
 		case RuleMatchKind.invalidSource:
+			if ((match.error as any).code === "ENOENT") {
+				reason += ` because no '${match.source?.path ?? nos}' found`
+				printErr(
+					new Error("Expected file in '" + (match.source?.path ?? nos) + "'", {
+						cause: match.error!,
+					}),
+				)
+				break
+			}
 			reason += ` because '${match.source?.path ?? nos}' has broken syntax`
-			output.error(
+			printErr(
 				new Error("Broken syntax in '" + (match.source?.path ?? nos) + "'", {
 					cause: match.error!,
 				}),
@@ -43,11 +48,11 @@ export function explain(
 			break
 		case RuleMatchKind.invalidInternal:
 			reason += ` because target has broken internal patterns`
-			output.error(new Error("Broken internal patterns", { cause: match.error! }))
+			printErr(new Error("Broken internal patterns", { cause: match.error! }))
 			break
 		case RuleMatchKind.invalidExternal:
 			reason += ` because '${match.source?.path ?? nos}' has broken patterns`
-			output.error(
+			printErr(
 				new Error("Broken patterns in '" + (match.source?.path ?? nos) + "'", {
 					cause: match.error!,
 				}),
@@ -55,10 +60,17 @@ export function explain(
 			break
 		case RuleMatchKind.none:
 			reason += ` because it's not scanned; ${potential}`
-			output.error(new Error("Not scanned"))
+			printErr(new Error("Not scanned"))
 			break
 		default:
 			return ""
 	}
 	return reason
+}
+
+function printErr(err: Error): void {
+	output.error(err)
+	for (let c = err.cause; c; c = err.cause) {
+		output.appendLine("Error cause: " + c)
+	}
 }

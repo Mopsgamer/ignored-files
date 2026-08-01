@@ -94,7 +94,7 @@ export default async function (entryUri: vscode.Uri): Promise<void> {
 		return
 	}
 	output.info("'" + entry + "' has been explained in", ms(Date.now() - start, { long: true }))
-	const explanation = explain(false, match, targetName as TargetName)
+	const explanation = explain(match, targetName as TargetName)
 	output.info("Got the explanation message: " + explanation)
 	void vscode.window.showInformationMessage(entry, { modal: true, detail: explanation })
 }

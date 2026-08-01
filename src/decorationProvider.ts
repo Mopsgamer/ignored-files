@@ -101,11 +101,11 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	): Promise<void> {
 		setScanning(true)
 		const start = Date.now()
-		output.info("Scanning...")
+		output.info("Constructing...")
 		using _logSelf = {
 			[Symbol.dispose]: () => {
 				setScanning(false)
-				output.info("Scanned in " + ms(Date.now() - start))
+				output.info("Constructed in " + ms(Date.now() - start))
 			},
 		}
 		this.targetMaker = options?.target || makeGit
@@ -120,13 +120,16 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		if (!vscode.workspace.workspaceFolders) return
 		for (const directory of vscode.workspace.workspaceFolders) {
 			const cwd = directory.uri.fsPath.replaceAll("\\", "/")
+			let start = Date.now()
 			const ctx = await vign.scan({ ...this.options, cwd })
+			output.info("Scanned in " + ms(Date.now() - start))
 			this.contexts.set(cwd, ctx)
 			for (const [file, _match] of ctx.paths) {
 				if (file.endsWith("/")) continue
 				const uri = pathToUri(cwd, file)
 				this.add(uri)
 			}
+			output.info("Normalized in " + ms(Date.now() - start))
 		}
 	}
 
@@ -287,7 +290,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		if (!ctx) return
 		const match = ctx.paths.get(parsed.entry)
 		const tooltip = match
-			? explain(this.options?.invert ?? false, match, this.targetMaker)
+			? explain(match, this.targetMaker)
 			: "Internal error, couldn't find " + parsed.entry
 		const propagate = true
 		let badge: string

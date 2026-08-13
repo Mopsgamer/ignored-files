@@ -5,6 +5,7 @@ import {
 	MatcherContext,
 	matcherContextAddPath,
 	matcherContextRemovePath,
+	RuleMatch,
 } from "view-ignored/patterns"
 import { makeGit, Target } from "view-ignored/targets"
 import * as vscode from "vscode"
@@ -124,18 +125,18 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			const ctx = await vign.scan({ ...this.options, cwd })
 			output.info("Scanned in " + ms(Date.now() - start))
 			this.contexts.set(cwd, ctx)
-			for (const [file, _match] of ctx.paths) {
-				if (file.endsWith("/")) continue
+			for (const [file, match] of ctx.paths) {
 				const uri = pathToUri(cwd, file)
-				this.add(uri)
+				this.add(uri, match)
 			}
 			output.info("Normalized in " + ms(Date.now() - start))
 		}
 	}
 
-	add(uri: vscode.Uri): void {
-		const ignored = this.options.invert
-		const decoration = ignored ? "ignored" : "included"
+	add(uri: vscode.Uri, match: RuleMatch): void {
+		const f = parseUri(uri)
+		if (!f) return
+		const decoration = match.ignored ? "ignored" : "included"
 		this.decorations.set(uri.fsPath, decoration)
 		this.onDidChange.fire(uri)
 	}
@@ -165,13 +166,11 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		if (added.length + removed.length > 0) output.info("File " + eventName + ":", f.entry)
 		if (added.length > 0) output.info("Added " + f.entry + ":", added)
 		for (const element of added) {
-			if (element.endsWith("/")) continue
 			const uri = pathToUri(f.cwd, element)
-			this.add(uri)
+			this.add(uri, ctx.paths.get(f.entry)!)
 		}
 		if (removed.length > 0) output.info("Deleted " + f.entry + ":", removed)
 		for (const element of removed) {
-			if (element.endsWith("/")) continue
 			const uri = pathToUri(f.cwd, element)
 			this.del(uri)
 		}

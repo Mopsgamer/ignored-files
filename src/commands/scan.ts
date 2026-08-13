@@ -10,7 +10,7 @@ export default async function (): Promise<void> {
 	const title = "Scan for ignored files"
 	const choice = await pickTarget(title, true)
 	if (!choice) return
-	const { targetName, mode } = choice
+	const { targetName, invert } = choice
 	if (targetName === "None") {
 		await vscode.commands.executeCommand("viewIgnored.scan.clear")
 		return
@@ -19,7 +19,8 @@ export default async function (): Promise<void> {
 	await decorationProvider.deinit()
 	await decorationProvider.init({
 		target: targetMakerFromName(targetName as TargetName),
-		invert: mode === "excluded",
+		invert,
+		skipInternal: invert === false,
 	})
 	output.info("Scanned", targetName, "in", ms(Date.now() - start, { long: true }))
 }

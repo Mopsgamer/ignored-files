@@ -41,9 +41,9 @@ export function pickValue(
 export async function pickTarget(
 	title: string,
 	none = false,
-): Promise<{ targetName: string; mode: "included" | "excluded" } | undefined> {
+): Promise<{ targetName: string; invert: boolean | 2 } | undefined> {
 	const related = (await relatedTargets()).map(nameFromTargetMaker)
-	let selectedMode: "included" | "excluded" = "included"
+	let inver: boolean | 2 = false
 
 	const targetName = await pickValue(
 		title,
@@ -53,8 +53,9 @@ export async function pickTarget(
 			...related.map<vscode.QuickPickItem>((name) => ({
 				label: name,
 				buttons: [
-					{ iconPath: new vscode.ThemeIcon("add"), tooltip: "Scan Included" },
-					{ iconPath: new vscode.ThemeIcon("remove"), tooltip: "Scan Excluded" },
+					{ iconPath: new vscode.ThemeIcon("diff-added"), tooltip: "Show Included" },
+					{ iconPath: new vscode.ThemeIcon("diff-ignored"), tooltip: "Show Excluded" },
+					{ iconPath: new vscode.ThemeIcon("diff"), tooltip: "Show Both" },
 				],
 				iconPath:
 					name === "VSCE"
@@ -64,11 +65,11 @@ export async function pickTarget(
 							: new vscode.ThemeIcon("view-ignored-" + name.toLowerCase()),
 			})),
 		],
-		(_item, button) => {
-			selectedMode = button.tooltip === "Scan Included" ? "included" : "excluded"
+		(_item, { tooltip }) => {
+			inver = tooltip === "Show Included" ? false : tooltip === "Show Both" ? 2 : true
 		},
 	)
 
 	if (!targetName) return undefined
-	return { targetName: targetName, mode: selectedMode }
+	return { targetName: targetName, invert: inver }
 }

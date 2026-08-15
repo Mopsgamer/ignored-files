@@ -960,7 +960,7 @@
 
     "version-range": ["version-range@4.15.0", "", {}, "sha512-Ck0EJbAGxHwprkzFO966t4/5QkRuzh+/I1RxhLgUKKwEn+Cd8NwM60mE3AqBZg5gYODoXW0EFsQvbZjRlvdqbg=="],
 
-    "view-ignored": ["view-ignored@0.12.0", "", { "dependencies": { "picomatch": "^4.0.5", "strip-json-comments": "^5.0.3" }, "bin": { "vign-diff": "out/cli/vign-diff.js" } }, "sha512-E7UGCZUJSbZSaNgDL3EXYkLwhp8o6DW5SOofDXnR8PLKYypwP7nM9/FIuv/oxA+CoyoQW9OVihpb4886usS/iw=="],
+    "view-ignored": ["view-ignored@0.12.1", "", { "dependencies": { "picomatch": "^4.0.5", "strip-json-comments": "^5.0.3" }, "bin": { "vign-diff": "out/cli/vign-diff.js" } }, "sha512-cvm7JG+b9W8L6fc3+34pGKuQwYMQ7G2BoJDW+Fd9TzGO3wVVz5wpLHfvtiDS/jI6q3zVnNit9JzRQCyD2ohKzA=="],
 
     "whatwg-encoding": ["whatwg-encoding@3.1.1", "", { "dependencies": { "iconv-lite": "0.6.3" } }, "sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ=="],
 

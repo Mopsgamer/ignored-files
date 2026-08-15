@@ -1,7 +1,7 @@
 import { RuleMatch, RuleMatchKind } from "view-ignored/patterns"
 import { Target } from "view-ignored/targets"
 
-import { output } from "./output.js"
+import { printErr } from "./printErr.js"
 import { nameFromTargetMaker, targetMakerFromName, TargetName } from "./targetName.js"
 
 export function explain(match: RuleMatch, t: TargetName | (() => Target)): string {
@@ -66,11 +66,4 @@ export function explain(match: RuleMatch, t: TargetName | (() => Target)): strin
 			return ""
 	}
 	return reason
-}
-
-function printErr(err: Error): void {
-	output.error(err)
-	for (let c = err.cause; c; c = err.cause) {
-		output.appendLine("Error cause: " + c)
-	}
 }

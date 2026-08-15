@@ -91,6 +91,37 @@
 				}
 			}
 		},
+		"configuration": {
+			"title": "View Ignored",
+			"properties": {
+				"viewIgnored.target": {
+					"type": "string",
+					"enum": [
+						"None",
+						"Git",
+						"NPM",
+						"Yarn v2+, Modern",
+						"Yarn v1, Classic",
+						"VSCE",
+						"Bun",
+						"Deno",
+						"JSR"
+					],
+					"default": "Git",
+					"description": "Default target system used to check for ignored/included file decorations."
+				},
+				"viewIgnored.invert": {
+					"type": "string",
+					"enum": [
+						"ignored",
+						"included",
+						"both"
+					],
+					"default": "ignored",
+					"description": "Filter mode for file decorations."
+				}
+			}
+		},
 		"commands": [
 			{
 				"title": "Disable decorations",
@@ -104,7 +135,7 @@
 				"command": "viewIgnored.scan",
 				"category": "View ignored",
 				"enablement": "viewIgnored.isReady && !viewIgnored.isScanning",
-				"icon": "$(source-control-view-icon)"
+				"icon": "$(diff-ignored)"
 			},
 			{
 				"title": "Explain ignoring reasons",

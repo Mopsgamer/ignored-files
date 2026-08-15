@@ -4,19 +4,26 @@ import * as vscode from "vscode"
 import { decorationProvider } from "../decorationProvider.js"
 import { output } from "../output.js"
 import { pickTarget } from "../pickValue.js"
-import { targetMakerFromName, TargetName } from "../targetName.js"
+import { targetMakerFromName, TargetName, targetNames } from "../targetName.js"
 
-export default async function (): Promise<void> {
+export default async function (mayTarget: any, mayInvert: any): Promise<void> {
 	const title = "Scan for ignored files"
-	const choice = await pickTarget(title, true)
-	if (!choice) return
-	const { targetName, invert } = choice
+
+	let targetName, invert
+	if (targetNames.includes(mayTarget) && [true, false, 2].some((v) => v === mayInvert)) {
+		targetName = mayTarget
+		invert = mayInvert
+	} else {
+		const choice = await pickTarget(title, true)
+		if (!choice) return
+		;({ targetName, invert } = choice)
+	}
+
 	if (targetName === "None") {
 		await vscode.commands.executeCommand("viewIgnored.scan.clear")
 		return
 	}
 	const start = Date.now()
-	await decorationProvider.deinit()
 	await decorationProvider.init({
 		target: targetMakerFromName(targetName as TargetName),
 		invert,

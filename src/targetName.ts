@@ -23,7 +23,7 @@ export const targetNames: TargetName[] = [
 	"JSR",
 ]
 
-export const targetProviders = targetNames.map(targetMakerFromName)
+export const targetProviders = targetNames.map((n) => targetMakerFromName(n))
 
 export function targetMakerFromName(name: TargetName): () => targets.Target {
 	switch (name) {
@@ -69,7 +69,7 @@ export function nameFromTargetMaker(targetMaker: () => targets.Target): TargetNa
 	}
 }
 
-export async function relatedTargets(
+export async function relatedTargetMakers(
 	signal: AbortSignal | null = null,
 ): Promise<(() => targets.Target)[]> {
 	const safeTargets: (() => targets.Target)[] = []

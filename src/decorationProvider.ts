@@ -7,13 +7,14 @@ import {
 	matcherContextRemovePath,
 	RuleMatch,
 } from "view-ignored/patterns"
-import { makeGit, Target } from "view-ignored/targets"
+import { Target } from "view-ignored/targets"
 import * as vscode from "vscode"
 
-import { setScanning, setTarget } from "./context.js"
+import { getInvert, getTarget, setInvert, setScanning, setTarget } from "./context.js"
 import { explain } from "./explain.js"
 import { output } from "./output.js"
 import { parseUri, pathToUri } from "./parseUri.js"
+import { printErr } from "./printErr.js"
 import { Semaphore } from "./semaphore.js"
 import { nameFromTargetMaker, targetMakerFromName } from "./targetName.js"
 
@@ -31,18 +32,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	private contexts: Map<string, MatcherContext> = new Map()
 
 	private aborter = new AbortController()
-	private options: Required<Omit<vign.ScanOptions, "cwd">> = {
-		target: targetMakerFromName("Git")(),
-		skipDepth: true,
-		skipInternal: true,
-		invert: false,
-		depth: Infinity,
-		fs,
-		signal: null,
-		dirs: false,
-		within: ".",
-	}
-	private targetMaker: () => Target = makeGit
+	private options: Required<Omit<vign.ScanOptions, "cwd">>
 
 	private watchQueue: {
 		eventName: string
@@ -51,21 +41,31 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	}[] = []
 	private watchDebounceTimer: NodeJS.Timeout | null = null
 
-	constructor() {}
+	constructor() {
+		this.options = {
+			target: null as unknown as Target,
+			skipDepth: true,
+			skipInternal: true,
+			invert: null as unknown as boolean | 2,
+			depth: Infinity,
+			fs,
+			signal: null,
+			dirs: false,
+			within: ".",
+		}
+	}
 
 	async init(
-		options?: Partial<Omit<vign.ScanOptions, "cwd" | "target">> & { target?: () => Target },
+		options: Partial<Omit<vign.ScanOptions, "cwd" | "target">> & { target: () => Target },
 	): Promise<void> {
 		await this.deinit()
 
 		const start = Date.now()
 		output.info("Initializing decoration provider...")
-		setScanning(true)
 		await this.scan(options)
 
 		output.info("Adding workspace folders listener...")
 		const l = vscode.workspace.onDidChangeWorkspaceFolders(async () => {
-			setScanning(true)
 			output.info("Locked workspace folders listener mutexWorspaceFolderChange")
 			using folders = this.mutexWorspaceFolderChange.tryAcquire()
 			using _logFolders = {
@@ -73,7 +73,6 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 					output.info("Unlocked workspace folders listener mutexWorspaceFolderChange"),
 			}
 			if (!folders) {
-				setScanning(false)
 				return
 			}
 			output.info("Locked workspace folders listener mutexWatcher")
@@ -98,7 +97,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	}
 
 	private async scan(
-		options?: Partial<Omit<vign.ScanOptions, "cwd" | "target">> & { target?: () => Target },
+		options: Partial<Omit<vign.ScanOptions, "cwd" | "target">> & { target: () => Target },
 	): Promise<void> {
 		setScanning(true)
 		const start = Date.now()
@@ -109,10 +108,16 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 				output.info("Constructed in " + ms(Date.now() - start))
 			},
 		}
-		this.targetMaker = options?.target || makeGit
-		setTarget(nameFromTargetMaker(this.targetMaker))
+		const prevTargetName = getTarget()
+		const prevInvert = getInvert()
+		const targetMaker = options.target
+		options.invert ??= false
+		setTarget(nameFromTargetMaker(targetMaker))
+		setInvert(options.invert)
 		assignOpt(this.options, options)
-		this.options.target = this.targetMaker()
+		const prevTarget = this.options.target
+		this.options.target = targetMaker()
+		this.options.invert = options.invert
 
 		this.decorations.clear()
 		this.contexts.clear()
@@ -122,7 +127,16 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		for (const directory of vscode.workspace.workspaceFolders) {
 			const cwd = directory.uri.fsPath.replaceAll("\\", "/")
 			let start = Date.now()
-			const ctx = await vign.scan({ ...this.options, cwd })
+			try {
+				var ctx = await vign.scan({ ...this.options, cwd })
+			} catch (cause) {
+				printErr(new Error("Unable to scan", { cause }))
+				setTarget(prevTargetName)
+				setInvert(prevInvert)
+				this.options.target = prevTarget
+				this.options.invert = prevInvert
+				continue
+			}
 			output.info("Scanned in " + ms(Date.now() - start))
 			this.contexts.set(cwd, ctx)
 			for (const [file, match] of ctx.paths) {
@@ -253,11 +267,9 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		output.info(`Locked/Waiting processing batch of ${batch.length} file system events`)
 
 		using _mutex = await this.mutexWatcher.acquire()
-		setScanning(true)
 
 		using _notScanning = {
 			[Symbol.dispose]: () => {
-				setScanning(false)
 				output.info(`Unlocked/Updated batch of ${batch.length} events in ` + ms(Date.now() - start))
 			},
 		}
@@ -277,6 +289,10 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		this.decorations.clear()
 		this.contexts.clear()
 		this.onDidChange.fire(undefined)
+		setTarget("None")
+		setInvert(false)
+		this.options.target = null as unknown as Target
+		this.options.invert = false
 		output.info("Cleared in " + ms(Date.now() - start))
 	}
 
@@ -289,7 +305,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		if (!ctx) return
 		const match = ctx.paths.get(parsed.entry)
 		const tooltip = match
-			? explain(match, this.targetMaker)
+			? explain(match, targetMakerFromName(getTarget(true)))
 			: "Internal error, couldn't find " + parsed.entry
 		const propagate = true
 		let badge: string

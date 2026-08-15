@@ -79,7 +79,8 @@ export async function pickTarget(
 				description: currentTarget === name ? "Current target" : undefined,
 				detail: {
 					NPM: "Shows inclusive files for Node Package Manage. Has 'publish' and 'list' modes.",
-					"Yarn v2+, Modern": "Shows inclusive files for Berry and ZPM. Has 'publish' and 'list' modes.",
+					"Yarn v2+, Modern":
+						"Shows inclusive files for Berry and ZPM. Has 'publish' and 'list' modes.",
 					"Yarn v1, Classic": "Shows inclusive files for old Yarn. Has 'publish' and 'list' modes.",
 					VSCE: "Shows inclusive files for VSIX.",
 					Git: "A recreated algorithm for inclusive files. Still not compatible.",

@@ -27,7 +27,6 @@ export default async function (mayTarget: any, mayInvert: any): Promise<void> {
 	await decorationProvider.init({
 		target: targetMakerFromName(targetName as TargetName),
 		invert,
-		skipInternal: invert === false,
 	})
 	output.info("Scanned", targetName, "in", ms(Date.now() - start, { long: true }))
 }

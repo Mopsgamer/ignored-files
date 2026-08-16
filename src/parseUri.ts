@@ -13,8 +13,9 @@ export function parseUri(uri: vscode.Uri): { entry: string; cwd: string } | void
 		vscode.workspace.workspaceFolders?.find((f) => fsPath.startsWith(f.uri.fsPath))?.uri.fsPath ||
 		""
 	if (!folder) {
-		output.error("Not parsable: " + uri)
-		vscode.window.showErrorMessage("Not parsable: " + uri)
+		const msg = "Cannot parse URI: " + uri.toString()
+		output.error(msg)
+		vscode.window.showErrorMessage(msg)
 	}
 	if (folder === fsPath) {
 		const entry = "."

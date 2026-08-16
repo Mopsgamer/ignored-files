@@ -49,28 +49,28 @@
 	"contributes": {
 		"icons": {
 			"view-ignored-npm": {
-				"description": "Deno icon provided by View ignored",
+				"description": "NPM icon provided by View ignored",
 				"default": {
 					"fontCharacter": "\\f1eb",
 					"fontPath": "./SimpleIcons.woff"
 				}
 			},
 			"view-ignored-yarn": {
-				"description": "Deno icon provided by View ignored",
+				"description": "Yarn icon provided by View ignored",
 				"default": {
 					"fontCharacter": "\\f72f",
 					"fontPath": "./SimpleIcons.woff"
 				}
 			},
 			"view-ignored-git": {
-				"description": "Deno icon provided by View ignored",
+				"description": "Git icon provided by View ignored",
 				"default": {
 					"fontCharacter": "\\ee52",
 					"fontPath": "./SimpleIcons.woff"
 				}
 			},
 			"view-ignored-bun": {
-				"description": "Deno icon provided by View ignored",
+				"description": "Bun icon provided by View ignored",
 				"default": {
 					"fontCharacter": "\\eba7",
 					"fontPath": "./SimpleIcons.woff"
@@ -84,7 +84,7 @@
 				}
 			},
 			"view-ignored-jsr": {
-				"description": "Deno icon provided by View ignored",
+				"description": "JSR icon provided by View ignored",
 				"default": {
 					"fontCharacter": "\\efe1",
 					"fontPath": "./SimpleIcons.woff"

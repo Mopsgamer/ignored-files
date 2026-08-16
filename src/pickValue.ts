@@ -48,7 +48,7 @@ export function pickValue(
 function description(name: string, saved: TargetName | "None", error?: Error): string | undefined {
 	const { isTemporary } = decorationProvider
 	return name === saved
-		? isTemporary && name !== "None" // Target temprarily disabled
+		? isTemporary && name !== "None" // Target temporarily disabled
 			? error
 				? "$(warning) Not suitable"
 				: undefined
@@ -82,7 +82,7 @@ export async function pickTarget(
 
 	const targetName = await pickValue(
 		title,
-		"Select new target of inclusive file decorations. Modes aren't implemented yet.",
+		"Select target for file decorations.",
 		[
 			...((none
 				? [
@@ -106,15 +106,14 @@ export async function pickTarget(
 				iconPath: iconPath(name),
 				description: description(name, currentTarget, errored.get(targetMakerFromName(name))),
 				detail: {
-					NPM: "Shows inclusive files for Node Package Manage. Has 'publish' and 'list' modes.",
-					"Yarn v2+, Modern":
-						"Shows inclusive files for Berry and ZPM. Has 'publish' and 'list' modes.",
-					"Yarn v1, Classic": "Shows inclusive files for old Yarn. Has 'publish' and 'list' modes.",
+					NPM: "Shows inclusive files for Node Package Manager.",
+					"Yarn v2+, Modern": "Shows inclusive files for Berry and ZPM.",
+					"Yarn v1, Classic": "Shows inclusive files for classic Yarn.",
 					VSCE: "Shows inclusive files for VSIX archives.",
-					Git: "A recreated algorithm for inclusive files. Still not compatible.",
-					Bun: "Shows inclusive files for the generated archives.",
-					Deno: "Shows inclusive files for the generated archives.",
-					JSR: "Shows inclusive files for the generated archives.",
+					Git: "Shows inclusive files for Git repositories.",
+					Bun: "Shows inclusive files for Bun packages.",
+					Deno: "Shows inclusive files for Deno packages.",
+					JSR: "Shows inclusive files for JSR packages.",
 				}[name],
 			})),
 		],

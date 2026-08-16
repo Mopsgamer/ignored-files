@@ -316,7 +316,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		const match = ctx.paths.get(parsed.entry)
 		const tooltip = match
 			? explain(match, targetMakerFromName(getTarget(true)))
-			: "Internal error, couldn't find " + parsed.entry
+			: "Internal error: could not find '" + parsed.entry + "'"
 		const propagate = true
 		let badge: string
 		switch (state) {

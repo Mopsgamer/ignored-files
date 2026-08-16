@@ -69,35 +69,32 @@ export function nameFromTargetMaker(targetMaker: () => targets.Target): TargetNa
 	}
 }
 
-export async function relatedTargetMakers(
-	signal: AbortSignal | null = null,
-): Promise<(() => targets.Target)[]> {
-	const safeTargets: (() => targets.Target)[] = []
-	if (!vscode.workspace.workspaceFolders) {
-		return safeTargets
-	}
+export type Related = {
+	related: (() => targets.Target)[]
+	errored: Map<() => targets.Target, Error>
+}
+export async function relatedTargetMakers(signal: AbortSignal | null = null): Promise<Related> {
+	const result: Related = { related: [], errored: new Map() }
+	if (!vscode.workspace.workspaceFolders) return result
 	for (const folder of vscode.workspace.workspaceFolders) {
 		for (const targetMaker of targetProviders) {
 			const target = targetMaker()
 			if (!target.init) {
-				safeTargets.push(targetMaker)
+				result.related.push(targetMaker)
 				continue
 			}
 			try {
 				await new Promise<void>((r, j) =>
-					target.init?.({ cwd: folder.uri.fsPath, fs, signal, target }, (err) => {
-						if (err) {
-							j(err)
-							return
-						}
-						r()
-					}),
+					target.init?.({ cwd: folder.uri.fsPath, fs, signal, target }, (err) =>
+						err ? j(err) : r(),
+					),
 				)
-			} catch {
+			} catch (error) {
+				result.errored.set(targetMaker, error as Error)
 				continue
 			}
-			safeTargets.push(targetMaker)
+			result.related.push(targetMaker)
 		}
 	}
-	return safeTargets
+	return result
 }

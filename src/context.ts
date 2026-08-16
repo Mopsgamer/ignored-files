@@ -14,12 +14,12 @@ export function setScanning(value: boolean): void {
 }
 
 export function setTarget(value: TargetName | "None"): void {
-	context.val.globalState.update("viewIgnored.target", value)
+	context.val.workspaceState.update("viewIgnored.target", value)
 	vscode.commands.executeCommand("setContext", "viewIgnored.target", value)
 }
 
 export function setInvert(value: boolean | 2): void {
-	context.val.globalState.update("viewIgnored.invert", value)
+	context.val.workspaceState.update("viewIgnored.invert", value)
 	vscode.commands.executeCommand("setContext", "viewIgnored.invert", value)
 }
 //#endregion
@@ -29,11 +29,11 @@ export function getTarget(force: true): TargetName
 export function getTarget(force?: false): TargetName | "None"
 export function getTarget(force = false) {
 	if (!context.val) return force ? "Git" : "None"
-	const v = context.val.globalState.get<TargetName | "None">("viewIgnored.target", "None")
+	const v = context.val.workspaceState.get<TargetName | "None">("viewIgnored.target", "None")
 	return force && v === "None" ? "Git" : v
 }
 
 export function getInvert(): boolean | 2 {
-	return context.val.globalState.get<boolean | 2>("viewIgnored.invert", false)
+	return context.val.workspaceState.get<boolean | 2>("viewIgnored.invert", false)
 }
 ////#endregion

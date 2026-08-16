@@ -10,7 +10,7 @@ import {
 import { Target } from "view-ignored/targets"
 import * as vscode from "vscode"
 
-import { getInvert, getTarget, setInvert, setScanning, setTarget } from "./context.js"
+import { getTarget, setInvert, setScanning, setTarget } from "./context.js"
 import { explain } from "./explain.js"
 import { output } from "./output.js"
 import { parseUri, pathToUri } from "./parseUri.js"
@@ -54,6 +54,8 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			within: ".",
 		}
 	}
+
+	public isTemporary = false
 
 	async init(
 		options: Partial<Omit<vign.ScanOptions, "cwd" | "target">> & { target: () => Target },
@@ -108,14 +110,9 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 				output.info("Constructed in " + ms(Date.now() - start))
 			},
 		}
-		const prevTargetName = getTarget()
-		const prevInvert = getInvert()
 		const targetMaker = options.target
 		options.invert ??= false
-		setTarget(nameFromTargetMaker(targetMaker))
-		setInvert(options.invert)
 		assignOpt(this.options, options)
-		const prevTarget = this.options.target
 		this.options.target = targetMaker()
 		this.options.invert = options.invert
 
@@ -124,22 +121,29 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		this.onDidChange.fire(undefined)
 
 		if (!vscode.workspace.workspaceFolders) return
+		let updated = false
 		for (const directory of vscode.workspace.workspaceFolders) {
 			const cwd = directory.uri.fsPath.replaceAll("\\", "/")
 			let start = Date.now()
 			try {
 				var ctx = await vign.scan({ ...this.options, cwd })
+				if (!updated) {
+					updated = true
+					setTarget(nameFromTargetMaker(targetMaker))
+					setInvert(options.invert)
+				}
 			} catch (cause) {
 				printErr(new Error("Unable to scan", { cause }))
-				setTarget(prevTargetName)
-				setInvert(prevInvert)
-				this.options.target = prevTarget
-				this.options.invert = prevInvert
+				vscode.window.showErrorMessage("Unable to scan", "Show output").then((choice) => {
+					if (choice === "Show output") output.show()
+				})
 				continue
 			}
 			output.info("Scanned in " + ms(Date.now() - start))
+			this.isTemporary = false
 			this.contexts.set(cwd, ctx)
 			for (const [file, match] of ctx.paths) {
+				if (options.signal?.aborted) return
 				const uri = pathToUri(cwd, file)
 				this.add(uri, match)
 			}
@@ -152,12 +156,12 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		if (!f) return
 		const decoration = match.ignored ? "ignored" : "included"
 		this.decorations.set(uri.fsPath, decoration)
-		this.onDidChange.fire(uri)
+		setImmediate(() => this.onDidChange.fire(uri))
 	}
 
 	del(uri: vscode.Uri): void {
 		this.decorations.delete(uri.fsPath)
-		this.onDidChange.fire(uri)
+		setImmediate(() => this.onDidChange.fire(uri))
 	}
 
 	private async watchPatch(
@@ -179,12 +183,15 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 			removed = Array.from(before.difference(after))
 		if (added.length + removed.length > 0) output.info("File " + eventName + ":", f.entry)
 		if (added.length > 0) output.info("Added " + f.entry + ":", added)
+		const signal = this.options.signal
 		for (const element of added) {
+			if (signal?.aborted) return
 			const uri = pathToUri(f.cwd, element)
 			this.add(uri, ctx.paths.get(f.entry)!)
 		}
 		if (removed.length > 0) output.info("Deleted " + f.entry + ":", removed)
 		for (const element of removed) {
+			if (signal?.aborted) return
 			const uri = pathToUri(f.cwd, element)
 			this.del(uri)
 		}
@@ -282,17 +289,20 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		}
 	}
 
-	async clear(): Promise<void> {
+	async clear(save = true): Promise<void> {
+		decorationProvider.isTemporary = !save
+		if (save) {
+			setTarget("None")
+			setInvert(false)
+			this.options.target = null as unknown as Target
+			this.options.invert = false
+		}
 		if (this.decorations.size === 0) return
 		const start = Date.now()
 		output.info("Clearing...")
 		this.decorations.clear()
 		this.contexts.clear()
 		this.onDidChange.fire(undefined)
-		setTarget("None")
-		setInvert(false)
-		this.options.target = null as unknown as Target
-		this.options.invert = false
 		output.info("Cleared in " + ms(Date.now() - start))
 	}
 
@@ -320,6 +330,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 	}
 
 	async deinit(): Promise<void> {
+		if (typeof decorationProvider === "undefined") return
 		const start = Date.now()
 		output.info("Deinitializing...")
 		if (this.watchDebounceTimer) {

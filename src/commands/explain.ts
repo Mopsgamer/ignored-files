@@ -30,7 +30,7 @@ export default async function (entryUri: vscode.Uri): Promise<void> {
 	} catch (cause) {
 		const message = "Failed to explain '" + entry + "'"
 		printErr(new Error(message, { cause }))
-		void vscode.window.showErrorMessage("Failed to explain '" + entry + "'", { modal: true })
+		void vscode.window.showErrorMessage(message, { modal: true })
 		return
 	}
 	output.info("Explained '" + entry + "' in", ms(Date.now() - start, { long: true }))

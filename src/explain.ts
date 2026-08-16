@@ -8,58 +8,70 @@ export function explain(match: RuleMatch, t: TargetName | (() => Target)): strin
 	const targetName = typeof t === "string" ? t : nameFromTargetMaker(t)
 	const targetMaker = typeof t === "string" ? targetMakerFromName(t) : t
 	const target = targetMaker()
-	let reason = match.ignored ? "Ignored" : "Included"
-	reason += " by " + targetName
+	const status = match.ignored ? "Ignored" : "Included"
 	const potential =
 		target.extractors.length === 0
 			? "no potential sources"
 			: `potential sources: '${target.extractors.map((e) => e.path).join("', '")}'`
 	const nos = "<no source path>"
+
+	let reason = ""
 	switch (match.kind) {
-		case RuleMatchKind.external:
-			reason += ` because of '${match.pattern}' pattern in '${match.source?.path ?? nos}'`
+		case RuleMatchKind.external: {
+			const sourcePath = match.source?.path ?? nos
+			const pattern = String(match.pattern)
+			reason = `${status} by ${targetName} because of '${pattern}' pattern in '${sourcePath}'`
 			break
-		case RuleMatchKind.internal:
-			reason += ` because of '${match.pattern}' pattern (internal pattern source)`
+		}
+		case RuleMatchKind.internal: {
+			const pattern = String(match.pattern)
+			reason = `${status} by ${targetName} because of '${pattern}' pattern (internal pattern source)`
 			break
-		case RuleMatchKind.noMatch:
+		}
+		case RuleMatchKind.noMatch: {
+			const sourcePath = match.source?.path ?? nos
 			const action = (match.source?.inverted ?? true) ? "excludes" : "includes"
-			reason += ` because '${match.source?.path ?? nos}' ${action} it (no matching patterns)`
+			reason = `${status} by ${targetName} because '${sourcePath}' ${action} it (no matching patterns)`
 			break
+		}
 		case RuleMatchKind.missingSource:
-			reason += ` because no sources found; ${potential}`
+			reason = `${status} by ${targetName} because no sources were found; ${potential}`
 			break
-		case RuleMatchKind.invalidSource:
+		case RuleMatchKind.invalidSource: {
+			const sourcePath = match.source?.path ?? nos
 			if ((match.error as any).code === "ENOENT") {
-				reason += ` because no '${match.source?.path ?? nos}' found`
+				reason = `${status} by ${targetName} because '${sourcePath}' was not found`
 				printErr(
-					new Error("Expected file in '" + (match.source?.path ?? nos) + "'", {
+					new Error(`Expected file in '${sourcePath}'`, {
 						cause: match.error!,
 					}),
 				)
 				break
 			}
-			reason += ` because '${match.source?.path ?? nos}' has broken syntax`
+			reason = `${status} by ${targetName} because '${sourcePath}' has broken syntax`
 			printErr(
-				new Error("Broken syntax in '" + (match.source?.path ?? nos) + "'", {
+				new Error(`Broken syntax in '${sourcePath}'`, {
 					cause: match.error!,
 				}),
 			)
 			break
+		}
 		case RuleMatchKind.invalidInternal:
-			reason += ` because target has broken internal patterns`
+			reason = `${status} by ${targetName} because target has broken internal patterns`
 			printErr(new Error("Broken internal patterns", { cause: match.error! }))
 			break
-		case RuleMatchKind.invalidExternal:
-			reason += ` because '${match.source?.path ?? nos}' has broken patterns`
+		case RuleMatchKind.invalidExternal: {
+			const sourcePath = match.source?.path ?? nos
+			reason = `${status} by ${targetName} because '${sourcePath}' has broken patterns`
 			printErr(
-				new Error("Broken patterns in '" + (match.source?.path ?? nos) + "'", {
+				new Error(`Broken patterns in '${sourcePath}'`, {
 					cause: match.error!,
 				}),
 			)
 			break
+		}
 		case RuleMatchKind.none:
-			reason += ` because it's not scanned; ${potential}`
+			reason = `${status} by ${targetName} because it is not scanned; ${potential}`
 			printErr(new Error("Not scanned"))
 			break
 		default:

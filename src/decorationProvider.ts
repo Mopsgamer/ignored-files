@@ -45,7 +45,7 @@ export class DecorationProvider implements vscode.FileDecorationProvider, vscode
 		this.options = {
 			target: null as unknown as Target,
 			skipDepth: true,
-			skipInternal: true,
+			skipInternal: false,
 			invert: null as unknown as boolean | 2,
 			depth: Infinity,
 			fs,
